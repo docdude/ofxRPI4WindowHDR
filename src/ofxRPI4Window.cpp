@@ -2325,7 +2325,7 @@ int ret;
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 
-		if ((isHDR && isDolby && is_std_Dolby) || !ofxRPI4Window::colorspace_on ) {
+		if ((isHDR && isDolby && is_std_Dolby) && !ofxRPI4Window::colorspace_on ) {
 			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
 
 			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
