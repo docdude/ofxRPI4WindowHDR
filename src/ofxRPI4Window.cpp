@@ -1485,7 +1485,7 @@ avi_infoframe ofxRPI4Window::avi_info;
 drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
 int ofxRPI4Window::colorspace_on = 0;
 int ofxRPI4Window::shader_init = 0;
-
+ofShader ofxRPI4Window::shader;
 
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
@@ -1628,6 +1628,79 @@ void ofxRPI4Window::EGL_create_surface(EGLint attribs[], EGLConfig config)
 		surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
 	}
 }
+
+void ofxRPI4Window::rgb2ycbcr_shader()
+{  //  ofShader shader;    
+
+	ofShaderSettings settings;
+	settings.shaderSources[GL_VERTEX_SHADER] = R"(
+		#version 310 es
+		uniform mat4 modelViewProjectionMatrix;
+		in vec4 position;
+
+		void main(){
+			gl_Position = modelViewProjectionMatrix * position;
+		}
+
+	)";
+
+	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
+		#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+		uniform int bits;
+		uniform int colorimetry;
+
+		out vec4 outputColor;
+
+
+		vec4 RGBtoYCbCr444(vec4 rgb)
+		{
+
+			float primaries[2][3];
+			primaries[0] = float[](0.2126, 0.7152, 0.0722);
+			primaries[1] = float[](0.2627, 0.6780, 0.0593); 
+
+			float d,e,scale, normalizer;
+			int shift = bits - 8;
+			float scalar1 = float(224 << shift);
+			float scalar2 = float(219 << shift);
+			float offset  = float(128 << shift);
+			int idx;
+	
+			if (colorimetry == 2) {
+				idx = 0;
+				d = 1.8556;
+				e = 1.5748;
+			}	
+			if (colorimetry == 9) {
+				idx = 1;
+				d = 1.8814;
+				e = 1.4746;
+			}
+			normalizer = float((256 << shift) - 1);
+		
+			if (bits == 10) {
+			shift = 8; // for 10bit need to use 16bit scalar
+			}	
+			scale = float((256 << shift) - 1);
+
+			float Y = round((primaries[idx][0] * rgb.r*scale + primaries[idx][1]* rgb.g*scale + primaries[idx][2] * rgb.b*scale));
+			float Cb = round(((-primaries[idx][0]/d) * rgb.r*scale - (primaries[idx][1]/d) * rgb.g*scale + 0.5 * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
+			float Cr = round((0.5 * rgb.r*scale - (primaries[idx][1]/e) * rgb.g*scale - (primaries[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
+			float a = 1.0;
+			return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
+		}
+
+
+		void main() {
+
+			outputColor = RGBtoYCbCr444(globalColor.rgba);
+		} 
+	)";
+
+	shader.setup(settings);	
+}	
 
 void ofxRPI4Window::HDRWindowSetup()
 {
@@ -1835,9 +1908,10 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (rgb_quant_range == 1) {
-		  ofShader shader;
+		if (rgb_quant_range == 1){//&& !ofxRPI4Window::shader.isLoaded()) {
+	//	  ofShader shader;
 		  shader.load("rgb2ycbcr");
+	//rgb2ycbcr_shader();
 		}
 		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
@@ -2367,9 +2441,11 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (rgb_quant_range == 1) {
-		  ofShader shader;
+		if (rgb_quant_range == 1){//  && !shader.isLoaded()) {
+	//	  ofShader shader;
 		  shader.load("rgb2ycbcr");
+	//	rgb2ycbcr_shader();
+
 		}
 
    EGL_info();   

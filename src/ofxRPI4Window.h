@@ -254,7 +254,7 @@ public:
     gbm_bo *previousBo = NULL;
     uint32_t previousFb = 0;
 	uint32_t buffer_width, buffer_height;
-    
+    static ofShader shader;    
     ofRectangle currentWindowRect;
     ofOrientation orientation;
     bool bEnableSetupScreen;
@@ -289,12 +289,19 @@ public:
 	void EGL_info();
 	/* DRM utilities, get/set properties, atomic set */
 	bool drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t object_type,
-				const char *name, uint32_t *prop_id /* out */,
-				uint64_t *value /* out */,
-				drmModePropertyPtr *prop /* out */);
+							   const char *name, uint32_t *prop_id /* out */,
+							   uint64_t *value /* out */, drmModePropertyPtr *prop /* out */);
+							   
+	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
+									  uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
 	int last_req = 0;
 	int first_req = 0;
 	bool flip = true;
+
+	void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
+	void FindModifiers(uint32_t format, uint32_t plane_id);
+	int find_device();
+	bool InitDRM(); 
 	/* Static variables set from command line */
 	static int isHDR;
 	static int isDoVi;
@@ -310,14 +317,9 @@ public:
 	static int colorspace_on;
 	int colorspace_status;
 	static int shader_init;
-	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
-			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
-	void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
-	void FindModifiers(uint32_t format, uint32_t plane_id);
-	int find_device();
-	bool InitDRM(); 
+
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
-	
+	static void rgb2ycbcr_shader();
 	int CreateFB_ID();
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);
@@ -346,6 +348,7 @@ public:
     ofCoreEvents coreEvents;
     ofCoreEvents & events();
     std::shared_ptr<ofBaseRenderer> & renderer();
+    std::shared_ptr<ofBaseRenderer> currentRenderer;
 	
 	/* Setup surfaces */
     void setup(const ofGLESWindowSettings & settings);
@@ -354,8 +357,8 @@ public:
 	void Bit10_16WindowSetup();
     void SDRWindowSetup();   
 	
-    std::shared_ptr<ofBaseRenderer> currentRenderer;
-   // static ofShader currentShader;
+
+
   
     EGLDisplay getEGLDisplay() override;
     EGLContext getEGLContext() override;
