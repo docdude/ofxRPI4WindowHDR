@@ -1,20 +1,26 @@
-# ofxRPI4Window
-
-### STATUS
-Very early, no Mouse/Keyboard support
+# ofxRPI4WindowHDR
 
 ### DESCRIPTION:   
 This is an openFrameworks addon for the Raspberry Pi to allow rendering without X
+HDR support added to take advantage of DRM linux kernel driver HDR metadata additions
+Uses dual planes to allow on the fly switching between SDR overlay plane and HDR primary plane
+Exposes HDR metadata and AVI infoframe structures to facilitate UI changes 
+Extensive logging for debugging
+
+
+
 
 ### REQUIREMENTS:   
-- openFrameworks 11
+- openFrameworks 11, with patches to use float images
+- linux 5.10, with patches to vc4, v3d, drm drivers
 - Raspberry Pi 4 or 3B+ (previous ones might work too)
 - Raspbian Buster (or Stretch on Rpi <= 3)
-- KMS Driver enabled
+- KMS Driver enabled, thru config.txt(see config.txt)
 - Modify your openframeworks installation:   
-
+- Newest Mesa libraries, with patches that add HDR colorspace attributes
+- 
  #### Manual Option  
-Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv6l/config.linuxarmv6l.default.mk`   
+Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv7l/config.linuxarmv7l.default.mk`   
 
 ```
     ifeq ($(USE_PI_LEGACY), 1)
@@ -34,7 +40,7 @@ https://github.com/openframeworks/openFrameworks/blob/master/libs/openFrameworks
 Run `./patchOF.sh`
 
 ### USAGE:   
-Clone into openFrameworks/addons  
+ 
 If needed, `sudo apt-get install libgbm-dev`.
 
 ### RUNNING
@@ -46,3 +52,9 @@ derived from
 https://github.com/matusnovak/rpi-opengl-without-x
 
 https://gitlab.freedesktop.org/mesa/kmscube/tree/master
+
+https://github.com/jvcleave/ofxRPI4Window
+
+https://github.com/popcornmix/xbmc/tree/gbm_matrix
+
+
