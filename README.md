@@ -15,11 +15,11 @@ Extensive logging for debugging
 
 
 ### REQUIREMENTS:   
-- openFrameworks 11, with patches to use float images and allow compiling on Biasilinux armv7l(ofx.patch)
-- raspberry Pi linux 5.10, with patches to vc4, v3d, drm drivers(drm_vc4.patch)
+- openFrameworks 11, with patches to use float images and allow compiling on Biasilinux armv7l --> (ofx.patch)
+- raspberry Pi linux 5.10, with patches to vc4, v3d, drm drivers --> (drm_vc4.patch)
 - Raspberry Pi 4 or 3B+ (previous ones might work too)
 - KMS Driver enabled, thru config.txt(see config.txt) 
-- Newest Mesa libraries, with patches that add HDR colorspace attributes(mesa_hdr.patch)
+- Newest Mesa libraries, with patches that add HDR colorspace attributes --> (mesa_hdr.patch)
 - 
  #### Manual Option  
 Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv7l/config.linuxarmv7l.default.mk`   
