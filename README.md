@@ -2,21 +2,23 @@
 
 ### DESCRIPTION:   
 This is an openFrameworks addon for the Raspberry Pi to allow rendering without X
+
 HDR support added to take advantage of DRM linux kernel driver HDR metadata additions
+
 Uses dual planes to allow on the fly switching between SDR overlay plane and HDR primary plane
+
 Exposes HDR metadata and AVI infoframe structures to facilitate UI changes 
+
 Extensive logging for debugging
 
 
 
 
 ### REQUIREMENTS:   
-- openFrameworks 11, with patches to use float images
-- linux 5.10, with patches to vc4, v3d, drm drivers
+- openFrameworks 11, with patches to use float images and allow compiling on Biasilinux armv7l
+- raspberry Pi linux 5.10, with patches to vc4, v3d, drm drivers
 - Raspberry Pi 4 or 3B+ (previous ones might work too)
-- Raspbian Buster (or Stretch on Rpi <= 3)
-- KMS Driver enabled, thru config.txt(see config.txt)
-- Modify your openframeworks installation:   
+- KMS Driver enabled, thru config.txt(see config.txt) 
 - Newest Mesa libraries, with patches that add HDR colorspace attributes
 - 
  #### Manual Option  
