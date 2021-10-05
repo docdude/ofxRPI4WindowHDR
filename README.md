@@ -20,7 +20,22 @@ Extensive logging for debugging
 - Raspberry Pi 4 or 3B+ (previous ones might work too)
 - KMS Driver enabled, thru config.txt(see config.txt) 
 - Newest Mesa libraries, with patches that add HDR colorspace attributes --> (mesa_hdr.patch)
-- 
+
+### DEPENDENCIES
+liburiparser.so.1.0.24
+libxshmfence.so.1.0.0
+libtinfo.so.6.2.0
+libxcb-dri3.so.0.1.0
+libxcb-present.so.0.0.0
+libxcb-sync.so.1.0.0
+libzstd.so.1.5.0
+libdrm.so.2.4.0
+libLLVM-9.so
+
+mesa libraries as above 
+
+
+
  #### Manual Option  
 Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv7l/config.linuxarmv7l.default.mk`   
 
@@ -48,6 +63,10 @@ If needed, `sudo apt-get install libgbm-dev`.
 ### RUNNING
 Use the classic oF way to Launch your application. (eg: `make RunDebug`)  
 *Note: Quitting is not yet properly supported, use Ctrl+C to interrupt your ofApp.*
+
+### PERMISSIONS
+User pgenerator needs to be added to video group
+# usermod -a video pgenerator
 
 ### CREDITS:   
 derived from 
