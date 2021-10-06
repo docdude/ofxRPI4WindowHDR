@@ -17,9 +17,10 @@ Extensive logging for debugging
 ### REQUIREMENTS:   
 - openFrameworks 11, with patches to use float images and allow compiling on Biasilinux armv7l --> (ofx.patch)
 - raspberry Pi linux 5.10, with patches to vc4, v3d, drm drivers --> (drm_vc4.patch)
-- Raspberry Pi 4 or 3B+ (previous ones might work too)
 - KMS Driver enabled, thru config.txt(see config.txt) 
 - Newest Mesa libraries, with patches that add HDR colorspace attributes --> (mesa_hdr.patch)
+- Mesa build command line: 
+CFLAGS="-mcpu=cortex-a72 -mfpu=neon-fp-armv8" CXXFLAGS="-mcpu=cortex-a72 -mfpu=neon-fp-armv8"  meson --prefix /usr --libdir lib -D platforms=x11,wayland -D egl-native-platform=drm -D vulkan-drivers=broadcom,swrast -D dri-drivers=i915 -D gallium-drivers=kmsro,v3d,vc4,swrast -D buildtype=debug -D gles1=enabled -D gles2=enabled -D shared-glapi=enabled -D gbm=enabled -D gbm-backends-path=/usr/lib  -Dcpp_args="-fPIC" -Dc_args='-fPIC -O2'  build
 
 ### DEPENDENCIES
 liburiparser.so.1.0.24
@@ -53,8 +54,6 @@ Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv7l/config.li
 Comment out `ofSetupOpenGL` in 
 https://github.com/openframeworks/openFrameworks/blob/master/libs/openFrameworks/app/ofAppRunner.cpp#L31
 
-#### Automatic Option  
-Run `./patchOF.sh`
 
 ### USAGE:   
  
@@ -65,7 +64,7 @@ Use the classic oF way to Launch your application. (eg: `make RunDebug`)
 *Note: Quitting is not yet properly supported, use Ctrl+C to interrupt your ofApp.*
 
 ### PERMISSIONS
-User pgenerator needs to be added to video group
+User pgenerator needs to be added to video group to allow permission to /dev/dri/card0, /dev/dri/card1, /dev/dri/render128
 # usermod -a video pgenerator
 
 ### CREDITS:   
