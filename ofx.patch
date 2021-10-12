@@ -1,3 +1,9 @@
+Only in /opt/openFrameworks/addons: obj
+Only in /opt/openFrameworks/addons: ofxAvCodec
+Only in /opt/openFrameworks/addons: ofxDSHapVideoPlayer
+Only in /opt/openFrameworks/addons: ofxFFmpeg
+Only in /opt/openFrameworks/addons: ofxFFmpegUtils
+Only in /opt/openFrameworks/addons: ofxHPVPlayer
 diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/addons/ofxOpenCv/addon_config.mk /opt/openFrameworks/addons/ofxOpenCv/addon_config.mk
 --- /opt/orig/of_v0.11.2_linuxarmv7l_release/addons/ofxOpenCv/addon_config.mk	2021-03-24 13:26:20.000000000 -0600
 +++ /opt/openFrameworks/addons/ofxOpenCv/addon_config.mk	2021-08-08 17:42:37.629884678 -0600
@@ -61,7 +67,62 @@ diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/apps/projectGenerator/commandL
  enum  optionIndex { UNKNOWN, HELP, PLUS, RECURSIVE, LISTTEMPLATES, PLATFORMS, ADDONS, OFPATH, VERBOSE, TEMPLATE, DRYRUN, SRCEXTERNAL, VERSION};
  
  constexpr option::Descriptor usage[] =
-
+Only in /opt/openFrameworks/examples/3d/3DModelLoaderExample: obj
+Only in /opt/openFrameworks/examples/3d/3DPrimitivesExample: obj
+Only in /opt/openFrameworks/examples/3d/advanced3dExample: obj
+Only in /opt/openFrameworks/examples/3d/assimpExample: obj
+Only in /opt/openFrameworks/examples/3d/cameraLensOffsetExample: obj
+Only in /opt/openFrameworks/examples/3d/cameraParentingExample: obj
+Only in /opt/openFrameworks/examples/3d/cameraRibbonExample/bin: cameraRibbonExample
+Only in /opt/openFrameworks/examples/3d/cameraRibbonExample: obj
+Only in /opt/openFrameworks/examples/3d/easyCamExample: obj
+Only in /opt/openFrameworks/examples/3d/meshFromCameraExample/bin: meshFromCameraExample
+Only in /opt/openFrameworks/examples/3d/meshFromCameraExample: obj
+Only in /opt/openFrameworks/examples/3d/normalsExample/bin: normalsExample
+Only in /opt/openFrameworks/examples/3d/normalsExample: obj
+Only in /opt/openFrameworks/examples/3d/ofBoxExample/bin: ofBoxExample
+Only in /opt/openFrameworks/examples/3d/ofBoxExample: obj
+Only in /opt/openFrameworks/examples/3d/ofNodeExample: obj
+Only in /opt/openFrameworks/examples/3d/orientationExample/bin: orientationExample
+Only in /opt/openFrameworks/examples/3d/orientationExample: obj
+Only in /opt/openFrameworks/examples/3d/pointCloudExample/bin: pointCloudExample
+Only in /opt/openFrameworks/examples/3d/pointCloudExample: obj
+Only in /opt/openFrameworks/examples/3d/pointPickerExample/bin: pointPickerExample
+Only in /opt/openFrameworks/examples/3d/pointPickerExample: obj
+Only in /opt/openFrameworks/examples/3d/quaternionArcballExample/bin: quaternionArcballExample
+Only in /opt/openFrameworks/examples/3d/quaternionArcballExample: obj
+Only in /opt/openFrameworks/examples/3d/quaternionLatLongExample/bin: quaternionLatLongExample
+Only in /opt/openFrameworks/examples/3d/quaternionLatLongExample: obj
+Only in /opt/openFrameworks/examples/communication/firmataExample/bin: firmataExample
+Only in /opt/openFrameworks/examples/communication/firmataExample: obj
+Only in /opt/openFrameworks/examples/communication/networkTcpClientExample/bin: networkTcpClientExample
+Only in /opt/openFrameworks/examples/communication/networkTcpClientExample: obj
+Only in /opt/openFrameworks/examples/communication/networkTcpServerExample/bin: networkTcpServerExample
+Only in /opt/openFrameworks/examples/communication/networkTcpServerExample: obj
+Only in /opt/openFrameworks/examples/communication/networkUdpReceiverExample/bin: networkUdpReceiverExample
+Only in /opt/openFrameworks/examples/communication/networkUdpReceiverExample: obj
+Only in /opt/openFrameworks/examples/communication/networkUdpSenderExample/bin: networkUdpSenderExample
+Only in /opt/openFrameworks/examples/communication/networkUdpSenderExample: obj
+Only in /opt/openFrameworks/examples/communication/oscChatSystemExample/bin: oscChatSystemExample
+Only in /opt/openFrameworks/examples/communication/oscChatSystemExample: obj
+Only in /opt/openFrameworks/examples/communication/oscReceiveExample/bin: oscReceiveExample
+Only in /opt/openFrameworks/examples/communication/oscReceiveExample: obj
+Only in /opt/openFrameworks/examples/communication/oscSenderExample/bin: oscSenderExample
+Only in /opt/openFrameworks/examples/communication/oscSenderExample: obj
+Only in /opt/openFrameworks/examples/communication/serialExample: obj
+Only in /opt/openFrameworks/examples/gl/areaLightExample/bin: areaLightExample
+Only in /opt/openFrameworks/examples/gl/areaLightExample: obj
+Only in /opt/openFrameworks/examples/graphics/colorExample/bin: colorExample
+Only in /opt/openFrameworks/examples/graphics/colorExample: obj
+Only in /opt/openFrameworks/examples/graphics/graphicsExample/bin: graphicsExample
+Only in /opt/openFrameworks/examples/graphics/graphicsExample: obj
+Only in /opt/openFrameworks/examples/graphics/polygonExample/bin: log.txt
+Only in /opt/openFrameworks/examples/graphics/polygonExample/bin: polygonExample
+Only in /opt/openFrameworks/examples/graphics/polygonExample: log.txt
+Only in /opt/openFrameworks/examples/graphics/polygonExample: obj
+Only in /opt/openFrameworks/examples/graphics/polygonExample: test
+Only in /opt/openFrameworks/examples/graphics/polygonExample: test.cpp
+Only in /opt/openFrameworks/libs: include
 diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/app/ofAppRunner.cpp /opt/openFrameworks/libs/openFrameworks/app/ofAppRunner.cpp
 --- /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/app/ofAppRunner.cpp	2021-03-24 13:26:21.000000000 -0600
 +++ /opt/openFrameworks/libs/openFrameworks/app/ofAppRunner.cpp	2021-08-16 18:58:18.000000000 -0600
@@ -108,7 +169,7 @@ diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/gl/ofFbo.c
  //--------------------------------------------------------------
 diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/gl/ofGLUtils.cpp /opt/openFrameworks/libs/openFrameworks/gl/ofGLUtils.cpp
 --- /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/gl/ofGLUtils.cpp	2021-03-24 13:26:21.000000000 -0600
-+++ /opt/openFrameworks/libs/openFrameworks/gl/ofGLUtils.cpp	2021-08-24 23:11:31.000000000 -0600
++++ /opt/openFrameworks/libs/openFrameworks/gl/ofGLUtils.cpp	2021-10-07 14:15:48.000000000 -0600
 @@ -10,7 +10,7 @@
  #include "ofPixels.h"
  #include "ofLog.h"
@@ -118,7 +179,24 @@ diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworks/gl/ofGLUti
  using namespace std;
  
  //---------------------------------
-@@ -107,8 +107,10 @@
+@@ -50,7 +50,15 @@
+ 
+ //---------------------------------
+ int ofGetGLInternalFormat(const ofPixels& pixels) {
+-	return ofGetGLInternalFormatFromPixelFormat(pixels.getPixelFormat());
++	//return GL_SRGB8;//ofGetGLInternalFormatFromPixelFormat(pixels.getPixelFormat());
++		switch(pixels.getNumChannels()) {
++		case 3: return GL_SRGB8;
++		case 4: return GL_SRGB8_ALPHA8;
++		case 2:
++			return GL_LUMINANCE_ALPHA;
++		default:
++			return GL_LUMINANCE;
++	}
+ }
+ 
+ //---------------------------------
+@@ -107,8 +115,10 @@
  #else
  	ofLogWarning("ofGLUtils") << "ofGetGLInternalFormat(): float textures not supported in OpenGL ES";
  	switch(pixels.getNumChannels()) {
@@ -415,7 +493,11 @@ diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/libs/openFrameworksCompiled/pr
  
  ################################################################################
  # PLATFORM FRAMEWORKS
-
+Only in /opt/openFrameworks/libs: poco
+Only in /opt/orig/of_v0.11.2_linuxarmv7l_release: ofx.diff
+Only in /opt/openFrameworks/scripts: apothecary
+Only in /opt/openFrameworks/scripts/linux/archlinux_armv7: rtaudio-armv7hf.tar.bz2
+Only in /opt/openFrameworks/scripts/linux/archlinux_armv7: usr
 diff -ur /opt/orig/of_v0.11.2_linuxarmv7l_release/scripts/linux/compilePG.sh /opt/openFrameworks/scripts/linux/compilePG.sh
 --- /opt/orig/of_v0.11.2_linuxarmv7l_release/scripts/linux/compilePG.sh	2021-03-24 13:26:21.000000000 -0600
 +++ /opt/openFrameworks/scripts/linux/compilePG.sh	2021-09-14 13:40:41.000000000 -0600
