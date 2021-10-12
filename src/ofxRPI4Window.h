@@ -188,7 +188,7 @@ public:
     drmModeCrtc *crtc;
 	int crtc_index;
     uint32_t connectorId, HDRplaneId, SDRplaneId;
-		bool ok;
+	//	bool ok;
 		uint64_t colorspace, max_bpc, output_format, c_enc, c_range, in_formats;
 	uint32_t prop_id;
 				uint64_t crtc_id, fb_id, blob_id;
@@ -244,12 +244,12 @@ bool drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t object_type,
 int last_req = 0;
 int first_req = 0;
   bool flip = true;
-int isHDR = 0;
+static int isHDR;
 
 void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
 void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
-
+void FindModifiers(uint32_t format, uint32_t plane_id);
 int find_device();
 bool InitDRM();
 int CreateFB_ID();
@@ -260,7 +260,7 @@ void FlipPage(bool flip, int isHDR, uint32_t fb_id);
 void SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id);
 void DisablePlane(uint32_t plane_id); 
 int SetPlaneId(int isHDR);
-bool updateHDR_Infoframe(enum hdmi_eotf, int idx);
+void updateHDR_Infoframe(enum hdmi_eotf, int idx);
 bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
 
 	drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
