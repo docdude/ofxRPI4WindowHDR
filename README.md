@@ -20,17 +20,27 @@ Extensive logging for debugging
 - KMS Driver enabled, thru config.txt(see config.txt) 
 - Newest Mesa libraries, with patches that add HDR colorspace attributes --> (mesa_hdr.patch)
 - Mesa build command line: 
+
 CFLAGS="-mcpu=cortex-a72 -mfpu=neon-fp-armv8" CXXFLAGS="-mcpu=cortex-a72 -mfpu=neon-fp-armv8"  meson --prefix /usr --libdir lib -D platforms=x11,wayland -D egl-native-platform=drm -D vulkan-drivers=broadcom,swrast -D dri-drivers=i915 -D gallium-drivers=kmsro,v3d,vc4,swrast -D buildtype=debug -D gles1=enabled -D gles2=enabled -D shared-glapi=enabled -D gbm=enabled -D gbm-backends-path=/usr/lib  -Dcpp_args="-fPIC" -Dc_args='-fPIC -O2'  build
 
 ### DEPENDENCIES
+
 liburiparser.so.1.0.24
+
 libxshmfence.so.1.0.0
+
 libtinfo.so.6.2.0
+
 libxcb-dri3.so.0.1.0
+
 libxcb-present.so.0.0.0
+
 libxcb-sync.so.1.0.0
+
 libzstd.so.1.5.0
+
 libdrm.so.2.4.0
+
 libLLVM-9.so
 
 mesa libraries as above 
@@ -54,14 +64,7 @@ Change `openFrameworks/libs/openFrameworksCompiled/project/linuxarmv7l/config.li
 Comment out `ofSetupOpenGL` in 
 https://github.com/openframeworks/openFrameworks/blob/master/libs/openFrameworks/app/ofAppRunner.cpp#L31
 
-
-### USAGE:   
- 
-If needed, `sudo apt-get install libgbm-dev`.
-
-### RUNNING
-Use the classic oF way to Launch your application. (eg: `make RunDebug`)  
-*Note: Quitting is not yet properly supported, use Ctrl+C to interrupt your ofApp.*
+of patch with ofx.patch
 
 ### PERMISSIONS
 User pgenerator needs to be added to video group to allow permission to /dev/dri/card0, /dev/dri/card1, /dev/dri/render128
