@@ -74,11 +74,22 @@ typedef EGLDisplay (EGLAPIENTRYP PFNEGLGETPLATFORMDISPLAYEXTPROC) (EGLenum platf
 using namespace std;
 
 /* HDR EDID parsing. */
+#define HDMI_IEEE_OUI 0x000c03
+#define HDMI_FORUM_IEEE_OUI 0xc45dd8
+#define HDMI_DOLBY_OUI 0x00d046
+#define HDMI_HDR10_PLUS_OUI 0x90848b
 #define CTA_EXTENSION_VERSION		0x03
+#define DOLBY_VIDEO_DATA_BLOCK 0x1
+#define HDR10_PLUS_DATA_BLOCK 0x1
+#define HDR_DYNAMIC_METADATA_BLOCK 0x7
 #define HDR_STATIC_METADATA_BLOCK       0x06
 #define USE_EXTENDED_TAG		0x07
 
 
+#define HDR_TYPE_HDR10 1
+#define HDR_TYPE_DOLBY_VISION 2
+#define HDR_TYPE_HDR10_PLUS 3
+#define HDR_TYPE_HLG 4
 
 // HDR definitions copied from linux/include/uapi/drm/drm_mode.h
 
@@ -107,6 +118,24 @@ struct drm_hdr_output_metadata {
 };
 
 
+/**
+ * struct dovi_output_metadata - Dolby Vision Source Metadata
+ *
+ * Dolby Vision source metadata to be passed from userspace
+ */
+struct dovi_output_metadata {
+	/**
+	 * @dv_status: Dolby Vision status, active/not active
+	 */
+	__u8 dv_status;
+	__u8 dv_interface; 
+	__u8 backlight_metadata;
+	__u8 backlight_max_luminance;
+	__u8 aux_runmode;
+	__u8 aux_version;
+	__u8 aux_debug;
+
+};
 #endif  // HAVE_DRM_HDR_OUTPUT_METADATA
 /* DRM HDR definitions. Not in the UAPI header, unfortunately. */
 enum hdmi_metadata_type {
@@ -196,8 +225,8 @@ public:
 		drmModeAtomicReq *req;
 			drmModePlaneRes *res;
 	drmModePlane *plane;
-	unsigned int num_modifiers;
-	uint64_t *modifiers;
+	unsigned int num_modifiers = 0;
+	uint64_t *modifiers = NULL;
 	avi_infoframe property_id;
 		uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
@@ -233,35 +262,46 @@ public:
     void disableSetupScreen() override;
     void setWindowShape(int w, int h) override;
     void setVerticalSync(bool enabled) override;
-    
+     
     void update() override;
     void draw() override;
-void EGL_info();
-bool drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t object_type,
+	void EGL_info();
+	/* DRM utilities, get/set properties, atomic set */
+	bool drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t object_type,
 		     const char *name, uint32_t *prop_id /* out */,
 		     uint64_t *value /* out */,
 		     drmModePropertyPtr *prop /* out */);
-int last_req = 0;
-int first_req = 0;
-  bool flip = true;
-static int isHDR;
+	int last_req = 0;
+	int first_req = 0;
+	bool flip = true;
+	static int isHDR;
+	static int isDolby;
 
-void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
+	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
-void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
-void FindModifiers(uint32_t format, uint32_t plane_id);
-int find_device();
-bool InitDRM();
-int CreateFB_ID();
-bool is_panel_hdr(int fd, int connector_id);
-void in_formats_info(int fd, uint32_t blob_id);
-bool cta_block(const char *edid_ext);
-void FlipPage(bool flip, int isHDR, uint32_t fb_id);
-void SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id);
-void DisablePlane(uint32_t plane_id); 
-int SetPlaneId(int isHDR);
-void updateHDR_Infoframe(enum hdmi_eotf, int idx);
-bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
+	void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
+	void FindModifiers(uint32_t format, uint32_t plane_id);
+	int find_device();
+	bool InitDRM();
+	
+	
+	int CreateFB_ID();
+	/* Parse EDID for HDR and Dolby Vision support report if display supports */
+	int is_panel_hdr_dovi(int fd, int connector_id);
+	void in_formats_info(int fd, uint32_t blob_id);
+	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
+	bool cta_is_dolby_video_block(const char *edid_ext);
+
+	/* Set DRM Plane swap between HDR and SDR planes */
+	void FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id);
+	void SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id);
+	void DisablePlane(uint32_t plane_id); 
+	int SetPlaneId(int isHDR);
+
+	/* Userspace access to HDR, Dolby Vision, AVI Infoframes */
+	void updateHDR_Infoframe(enum hdmi_eotf, int idx);
+	bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
+	void updateDoVi_Infoframe(enum hdmi_eotf, int idx);
 
 	drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
     void swapBuffers() override;
@@ -273,9 +313,11 @@ bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
     ofCoreEvents coreEvents;
     ofCoreEvents & events();
     std::shared_ptr<ofBaseRenderer> & renderer();
-
+	
+	/* Setup surfaces */
     void setup(const ofGLESWindowSettings & settings);
 	void HDRWindowSetup();
+	void DoViWindowSetup();
     void SDRWindowSetup();   
 	
     std::shared_ptr<ofBaseRenderer> currentRenderer;
