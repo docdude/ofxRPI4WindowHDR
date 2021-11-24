@@ -238,6 +238,39 @@ const char *format_str(uint32_t format)
 	}
 }
 
+void mode_id_info(int fd, uint32_t blob_id)
+{
+	drmModePropertyBlobRes *blob = drmModeGetPropertyBlob(fd, blob_id);
+	if (!blob) {
+		perror("drmModeGetPropertyBlob");
+	}
+
+	drmModeModeInfo *mode = static_cast<drmModeModeInfo*>(blob->data);
+	
+	ofLog() << "MODE_ID currently set to:";
+	ofLog() << "    clock " << mode->clock;
+
+	ofLog() << "    hdisplay " << mode->hdisplay;
+	ofLog() << "    hsync_start " << mode->hsync_start;
+	ofLog() << "    hsync_end " << mode->hsync_end;
+	ofLog() << "    htotal " << mode->htotal;
+	ofLog() << "    hskew " << mode->hskew;
+
+	ofLog() << "    vdisplay " << mode->vdisplay;
+	ofLog() << "    vsync_start " << mode->vsync_start;
+	ofLog() << "    vsync_end " << mode->vsync_end;
+	ofLog() << "    vtotal " << mode->vtotal;
+	ofLog() << "    vscan " << mode->vscan;
+
+	ofLog() << "    vrefresh " << mode->vrefresh;
+
+	ofLog() << "    flags " << mode->flags;
+	ofLog() << "    type " << mode->type;
+	ofLog() << "    name " << mode->name;
+
+	drmModeFreePropertyBlob(blob);
+
+}
 
 void hdr_output_metadata_info(int fd, uint32_t blob_id)
 {
@@ -688,7 +721,7 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 			if (strcmp(prop->name, "IN_FORMATS") == 0) {
 			    in_formats_info(drm_fd, value);
 			} else if (strcmp(prop->name, "MODE_ID") == 0) {
-			//	mode_id_info(drm_fd, value);
+				mode_id_info(drm_fd, value);
 			} else if (strcmp(prop->name, "HDR_OUTPUT_METADATA") == 0) {
 
 				hdr_output_metadata_info(drm_fd, value);
@@ -797,8 +830,7 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				if (strcmp(_prop->name, "IN_FORMATS") == 0) {
 				    in_formats_info(drm_fd, _value);
 				} else if (strcmp(_prop->name, "MODE_ID") == 0) {
-				//	mode_id_info(drm_fd, _value);
-				ofLog() << "************";
+					mode_id_info(drm_fd, _value);
 				} else if (strcmp(_prop->name, "HDR_OUTPUT_METADATA") == 0) {
 					hdr_output_metadata_info(drm_fd, _value);
 				} else if (strcmp(_prop->name, "DOVI_OUTPUT_METADATA") == 0) {
@@ -1180,10 +1212,7 @@ bool ofxRPI4Window::InitDRM()
         
         drmModeFreeConnector(connector);
         drmModeFreeResources(resources);
-    }//else
-   // {
-  //      passed = true;
-   // }
+    }
 
 
 		
@@ -2581,8 +2610,7 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, connectorId/* in */,
 			prop_id /* in */, value /* in */, prop /* in */);
 			
-drmModeCreatePropertyBlob(device, &mode, sizeof(mode),
-					      (uint32_t*)&blob_id);		
+	
 			
 		ok = drm_mode_get_property(device, crtc->crtc_id,
 				DRM_MODE_OBJECT_CRTC, "MODE_ID",
@@ -2590,7 +2618,12 @@ drmModeCreatePropertyBlob(device, &mode, sizeof(mode),
 
 		if (!ok || !blob_id)
 			ofLogError() << "DRM: Unable find MODE_ID";
+	if (blob_id)
+      drmModeDestroyPropertyBlob(device, blob_id);
+    blob_id = 0;
 
+	drmModeCreatePropertyBlob(device, &mode, sizeof(mode),
+					      (uint32_t*)&blob_id);	
 
 	drm_mode_atomic_set_property(device, req, "MODE_ID" /* in */, crtc->crtc_id/* in */,
 			prop_id /* in */, blob_id /* in */, prop /* in */);
