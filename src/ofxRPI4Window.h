@@ -187,6 +187,7 @@ static const DisplayChromacities DisplayChromacityList[] =
 	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.31270f, 0.32900f }, // Display Gamut P3D65
 	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.31400f, 0.35100f }, // Display Gamut P3DCI(Theater)
 	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.32168f, 0.33767f }, // Display Gamut P3D60(ACES Cinema)
+	{ 0.67030f, 0.32970f, 0.26060f, 0.67320f, 0.14420f, 0.05120f, 0.31270f, 0.32900f }, //videoforge dovi ??
 };
 
 class ofxRPI4Window : public ofAppBaseGLESWindow

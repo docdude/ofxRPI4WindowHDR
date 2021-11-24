@@ -381,13 +381,13 @@ void ofxRPI4Window::get_format_modifiers(int fd, uint32_t blob_id, int format_in
 
 	for (uint32_t j = 0; j < data->count_modifiers; j++) {
 		if (mods[j].formats & (1ULL << format_index)) {
-			modifiers[j-1] = mods[j].modifier;
+			modifiers[j] = mods[j].modifier;
 	   /*
 		* Some broadcom modifiers have parameters encoded which need to be
 		* masked out before comparing with reported modifiers.
 		*/
-			if ((modifiers[j-1] >> 56) == DRM_FORMAT_MOD_VENDOR_BROADCOM)
-				modifiers[j-1] = fourcc_mod_broadcom_mod(modifiers[j-1]);
+			if ((modifiers[j] >> 56) == DRM_FORMAT_MOD_VENDOR_BROADCOM)
+				modifiers[j] = fourcc_mod_broadcom_mod(modifiers[j]);
 		}
 	}
 
@@ -1138,7 +1138,28 @@ bool ofxRPI4Window::InitDRM()
     }
     
     connectorId = connector->connector_id;
-    mode = connector->modes[0];
+#if 1
+	/* find prefered mode or the highest resolution mode: */
+	for (int i = 0, area = 0; i < connector->count_modes; i++) {
+		drmModeModeInfo current_mode = connector->modes[i];
+
+		if (current_mode.type & DRM_MODE_TYPE_PREFERRED) {
+			mode = current_mode;
+		}
+
+		int current_area = current_mode.hdisplay * current_mode.vdisplay;
+		if (current_area > area) {
+			mode = current_mode;
+			area = current_area;
+		}
+	}
+
+	if (!&mode) {
+		ofLog() <<"could not find mode!\n";
+		return -1;
+	}
+#endif	
+ //   mode = connector->modes[0];
     
     currentWindowRect = ofRectangle(0, 0, mode.hdisplay, mode.vdisplay);
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
@@ -2505,12 +2526,12 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id)
 		} else if (isHDR && isDolby) {
 			DisablePlane(SDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
-						updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
+					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
 			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorspace = 10; //BT2020_YCC
+			avi_infoframe.colorspace = 9; //BT2020_YCC
 			avi_infoframe.output_format = 2; //YCrCb422, doesnt work with YCrCb420
-			avi_infoframe.max_bpc = 12; // 12 bit
+			avi_infoframe.max_bpc = 10; // 12 bit
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
 			avi_infoframe.c_range = 1; //YCbCr full range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
