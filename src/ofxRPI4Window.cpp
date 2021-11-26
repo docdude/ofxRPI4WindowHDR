@@ -247,7 +247,7 @@ void mode_id_info(int fd, uint32_t blob_id)
 
 	drmModeModeInfo *mode = static_cast<drmModeModeInfo*>(blob->data);
 	
-	ofLog() << "MODE_ID currently set to:";
+	ofLog() << "MODE_ID(blob) currently set to:";
 	ofLog() << "    clock " << mode->clock;
 
 	ofLog() << "    hdisplay " << mode->hdisplay;
@@ -285,7 +285,7 @@ void hdr_output_metadata_info(int fd, uint32_t blob_id)
  
 
 		const struct drm_hdr_metadata_infoframe* info = &meta->hdmi_metadata_type1;
-		ofLog() << "HDR_OUTPUT_METADATA currently set to:";
+		ofLog() << "HDR_OUTPUT_METADATA(blob) currently set to:";
 		ofLog() << "	metadata_type = " << static_cast<int>(info->metadata_type); 
 		ofLog() << "	eotf = " << static_cast<int>(info->eotf);
 		ofLog() << "	display_primaries_r_x = " << info->display_primaries[0].x;
@@ -317,14 +317,14 @@ void dovi_output_metadata_info(int fd, uint32_t blob_id)
 
  
 
-		ofLog() << "DOVI_OUTPUT_METADATA currently set to:";
-		ofLog() << "	DV Status = " << (dovi->dv_status ? "active" : "not active"); 
-		ofLog() << "	DV Interface = " << (dovi->dv_interface ? "low latency" : "standard + low_latency"); //fix
-		ofLog() << "	Backlight Metadata = " << (dovi->backlight_metadata ? "present" : "not present");
-		ofLog() << "	Backlight Max Luminance = " << (dovi->backlight_max_luminance  ? "present" : "not present");
-		ofLog() << "	Auxillary runmode = " << (dovi->aux_runmode  ? "present" : "not present");
-		ofLog() << "	Auxillary version = " << (dovi->aux_version  ? "present" : "not present");
-		ofLog() << "	Auxillary debug = " << (dovi->aux_debug  ? "present" : "not present");
+		ofLog() << "DOVI_OUTPUT_METADATA(blob) currently set to:";
+		ofLog() << "DV Status = " << (dovi->dv_status ? "active" : "not active"); 
+		ofLog() << "    DV Interface = " << (dovi->dv_interface ? "low latency" : "standard + low_latency"); //fix
+		ofLog() << "    Backlight Metadata = " << (dovi->backlight_metadata ? "present" : "not present");
+		ofLog() << "    Backlight Max Luminance = " << (dovi->backlight_max_luminance  ? "present" : "not present");
+		ofLog() << "    Auxillary runmode = " << (dovi->aux_runmode  ? "present" : "not present");
+		ofLog() << "    Auxillary version = " << (dovi->aux_version  ? "present" : "not present");
+		ofLog() << "    Auxillary debug = " << (dovi->aux_debug  ? "present" : "not present");
 
 
 
@@ -685,7 +685,8 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 	int success = 0;
     if (first_req) { req = drmModeAtomicAlloc(); first_req = 0;}
     uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;	
-
+	uint64_t tmp_value;
+	
 	success = drmModeAtomicAddProperty(req, object_id, prop_id, value);						
 
 	if (success < 0) {
@@ -698,23 +699,29 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 
 		switch (type) {
 		case DRM_MODE_PROP_RANGE:
-			ofLog() << "DRM: Setting " << name << ": range [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value;
-
+			// This is a special case, as the SRC_* properties are
+			// in 16.16 fixed point
+			if (strncmp(prop->name, "SRC_", 4) == 0) {
+				tmp_value = value >> 16;
+				ofLog() << "DRM: Setting " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value << " (" << tmp_value << ")";
+			} else {
+				ofLog() << "DRM: Setting " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value;
+			}
 			break;
 		case DRM_MODE_PROP_ENUM:
-			ofLog() << "DRM: Setting " << name << ": enum {" << prop->enums[value].name << "} = " << prop->enums[value].value;
+			ofLog() << "DRM: Setting " << name << "(enum): {" << prop->enums[value].name << "} = " << prop->enums[value].value;
 			break;
 		case DRM_MODE_PROP_BITMASK:
 		    break;
 		case DRM_MODE_PROP_OBJECT:
-			ofLog() << "DRM: Setting " << name << ": object " << prop->name << " = " << value;
+			ofLog() << "DRM: Setting " << name << "(object): " << prop->name << " = " << value;
 			break;
 		case DRM_MODE_PROP_SIGNED_RANGE:
-			ofLog() << "DRM: Setting " << name << ": range [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value;
+			ofLog() << "DRM: Setting " << name << "(signed range): [" <<  static_cast<int32_t>(prop->values[0]) << ".." << static_cast<int32_t>(prop->values[1]) << "] = " << static_cast<int32_t>(value);
 			break;
 
 		case DRM_MODE_PROP_BLOB:
-			ofLog() << "DRM: Setting " << name << ": blob_id" << " = " << value;
+			ofLog() << "DRM: Setting " << name << "(blob): blob_id = " << value;
 			if (!value) {
 				break;
 			}
@@ -768,7 +775,7 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 //		bool atomic = flags & DRM_MODE_PROP_ATOMIC;
 //		bool immutable = flags & DRM_MODE_PROP_IMMUTABLE;
 		uint64_t _value = proplist->prop_values[i];
-		
+		uint64_t tmp_value;
 		if (strcmp(_prop->name, name) == 0) {
 			found = true;
 			uint32_t flags = _prop->flags;
@@ -778,30 +785,43 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 
 			switch (type) {
 			case DRM_MODE_PROP_RANGE:
-				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] = ";
+				// This is a special case, as the SRC_* properties are
+				// in 16.16 fixed point
+				if (strncmp(_prop->name, "SRC_", 4) == 0) {
+					tmp_value = _value >> 16;
+				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value << " (" << tmp_value << ")";
 
+				} else {
+				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value;
+				}
 				break;
 			case DRM_MODE_PROP_ENUM:
-			case DRM_MODE_PROP_BITMASK:
-
+				ofLog() << name << "(enum) values:";
 				for (int j = 0; j < _prop->count_enums; ++j) {;
-				ofLog() << name << ": enum {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
+				ofLog() << "    {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
+				}	
+			
+				break;
+			case DRM_MODE_PROP_BITMASK:
+				ofLog() << name << ":";
+				for (int j = 0; j < _prop->count_enums; ++j) {;
+				ofLog() << "    enum {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
 				}
 				break;
 			case DRM_MODE_PROP_OBJECT:
-				ofLog() << name << ": object " << _prop->name << " = " << _value;
+				ofLog() << name << "(object): currently set to " << _prop->name << " = " << _value;
 				break;
 			case DRM_MODE_PROP_SIGNED_RANGE:
-				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] = ";
+				ofLog() << name << "(signed range): [" <<  static_cast<int32_t>(_prop->values[0]) << ".." << static_cast<int32_t>(_prop->values[1]) << "] currently set to = " <<  static_cast<int32_t>(_value);
 				break;
 			}
 
 			switch (type) {
 			case DRM_MODE_PROP_RANGE:
-				ofLog() << name << ": currently set to " << _value;
+	//			ofLog() << name << "(range): currently set to " << _value;
 			    break;
 			case DRM_MODE_PROP_ENUM:
-			    ofLog() << name << ": currently set to enum {"<< _prop->enums[_value].name << "} = " << _value;
+			    ofLog() << name << "(enum): currently set to {"<< _prop->enums[_value].name << "} = " << _value;
 			    break;
 			case DRM_MODE_PROP_BITMASK:
 			    ofLog() << _value;
@@ -815,10 +835,10 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				break;
 			case DRM_MODE_PROP_BLOB:
 				// TODO: base64-encode blob contents
-				ofLog() << name << ": currently set to blob_id " << _value;
+				ofLog() << name << "(blob): currently set to blob_id = " << _value;
 				break;
 			case DRM_MODE_PROP_SIGNED_RANGE:
-				ofLog() << _value;
+		//		ofLog() << static_cast<int32_t>(_value);
 				break;
 			}
 
@@ -844,9 +864,9 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 			case DRM_MODE_PROP_RANGE:
 				// This is a special case, as the SRC_* properties are
 				// in 16.16 fixed point
-				if (strncmp(_prop->name, "SRC_", 4) == 0) {
-					ofLog() << (_value >> 16);
-				}
+	//			if (strncmp(_prop->name, "SRC_", 4) == 0) {
+	//				ofLog() << (_value >> 16);
+		//		}
 				break;
 			case DRM_MODE_PROP_OBJECT:
 				if (!_value) {
@@ -2636,15 +2656,16 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 			ofLogError() << "DRM: Unable find ACTIVE";
 
 
-
+//	last_req = 1;
 	drm_mode_atomic_set_property(device, req, "ACTIVE" /* in */, crtc->crtc_id/* in */,
 			prop_id /* in */, 1 /* in */, prop /* in */);
 
  
+	
  			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_ID",
 					&prop_id, NULL, &prop);
-
+//	first_req = 1;
  	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, plane_id/* in */,
 					prop_id /* in */, crtc->crtc_id /* in */, prop /* in */);
 					
@@ -2682,26 +2703,26 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 					DRM_MODE_OBJECT_PLANE, "CRTC_X",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_X" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->x/* in */, prop /* in */);
+					prop_id /* in */, static_cast<int32_t>(currentWindowRect.x) /*crtc->x *//* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_Y",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_Y" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->y/* in */, prop /* in */);
+					prop_id /* in */, static_cast<int32_t>(currentWindowRect.y) /*crtc->y *//* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_W",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_W" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->width /* in */, prop /* in */);
+					prop_id /* in */,((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1)/* crtc->width */ /* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_H",
 					&prop_id, NULL, &prop);
 	last_req = 1;
 	drm_mode_atomic_set_property(device, req, "CRTC_H" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->height /* in */, prop /* in */);
+					prop_id /* in */, ((static_cast<uint32_t>(currentWindowRect.height) + 1) & ~1) /*crtc->height */ /* in */, prop /* in */);
 
 }
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
@@ -2710,6 +2731,15 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 	int ret;
 	drmModePropertyBlobRes *blob;
 
+	ok = drm_mode_get_property(device, connectorId,
+			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
+			&prop_id, &blob_id, &prop);
+	if (!ok || !blob_id)
+		ofLogError() << "Unable find or DOVI_OUTPUT_METADATA not set";
+	
+	if (blob_id)
+      drmModeDestroyPropertyBlob(device, blob_id);
+    blob_id = 0;	
 
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
