@@ -238,6 +238,81 @@ const char *format_str(uint32_t format)
 	}
 }
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+static float mode_vrefresh(drmModeModeInfo *mode)
+{
+	return  mode->clock * 1000.00
+			/ (mode->htotal * mode->vtotal);
+}
+
+#define bit_name_fn(res)					\
+const char * res##_str(int type) {				\
+	unsigned int i;						\
+	const char *sep = "";					\
+	for (i = 0; i < ARRAY_SIZE(res##_names); i++) {		\
+		if (type & (1 << i)) {				\
+			printf("%s%s", sep, res##_names[i]);	\
+			sep = ", ";				\
+		}						\
+	}							\
+	return NULL;						\
+}
+
+static const char *mode_type_names[] = {
+	"builtin",
+	"clock_c",
+	"crtc_c",
+	"preferred",
+	"default",
+	"userdef",
+	"driver",
+};
+
+static bit_name_fn(mode_type)
+
+static const char *mode_flag_names[] = {
+	"phsync",
+	"nhsync",
+	"pvsync",
+	"nvsync",
+	"interlace",
+	"dblscan",
+	"csync",
+	"pcsync",
+	"ncsync",
+	"hskew",
+	"bcast",
+	"pixmux",
+	"dblclk",
+	"clkdiv2"
+};
+
+static bit_name_fn(mode_flag)
+
+static void dump_mode(drmModeModeInfo *mode, int index)
+{
+	printf("  #%2i %-10s %6.2f %4d %4d %4d %4d %4d %4d %4d %4d %6d",
+	       index,
+	       mode->name,
+	       mode_vrefresh(mode),
+	       mode->hdisplay,
+	       mode->hsync_start,
+	       mode->hsync_end,
+	       mode->htotal,
+	       mode->vdisplay,
+	       mode->vsync_start,
+	       mode->vsync_end,
+	       mode->vtotal,
+	       mode->clock);
+
+	printf(" flags: ");
+	mode_flag_str(mode->flags);
+	printf("; type: ");
+	mode_type_str(mode->type);
+	printf("\n");
+}
+
 void mode_id_info(int fd, uint32_t blob_id)
 {
 	drmModePropertyBlobRes *blob = drmModeGetPropertyBlob(fd, blob_id);
@@ -318,7 +393,7 @@ void dovi_output_metadata_info(int fd, uint32_t blob_id)
  
 
 		ofLog() << "DOVI_OUTPUT_METADATA(blob) currently set to:";
-		ofLog() << "DV Status = " << (dovi->dv_status ? "active" : "not active"); 
+		ofLog() << "	DV Status = " << (dovi->dv_status ? "active" : "not active"); 
 		ofLog() << "    DV Interface = " << (dovi->dv_interface ? "low latency" : "standard + low_latency"); //fix
 		ofLog() << "    Backlight Metadata = " << (dovi->backlight_metadata ? "present" : "not present");
 		ofLog() << "    Backlight Max Luminance = " << (dovi->backlight_max_luminance  ? "present" : "not present");
@@ -406,6 +481,7 @@ void ofxRPI4Window::get_format_modifiers(int fd, uint32_t blob_id, int format_in
 
 
 	}
+	num_modifiers +=1;
 	modifiers = (uint64_t *)calloc(data->count_modifiers, sizeof(uint64_t));
 
 	if (!modifiers) {
@@ -1192,16 +1268,20 @@ bool ofxRPI4Window::InitDRM()
     connectorId = connector->connector_id;
 #if 1
 	/* find prefered mode or the highest resolution mode: */
+	printf("  Connector Modes:\n");
+	printf("index    name      (Hz) hdisp hss  hse htot vdisp "
+			       "vss  vse vtot  clock\n");
 	for (int i = 0, area = 0; i < connector->count_modes; i++) {
 		drmModeModeInfo current_mode = connector->modes[i];
 
+		dump_mode(&connector->modes[i], i);
 		if (current_mode.type & DRM_MODE_TYPE_PREFERRED) {
 			mode = current_mode;
 		}
 
 		int current_area = current_mode.hdisplay * current_mode.vdisplay;
 		if (current_area > area) {
-			mode = current_mode;
+		//	mode = current_mode;
 			area = current_area;
 		}
 	}
@@ -1423,7 +1503,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 		ofLog() << "DRM: setting up Dolby Vision window/surface"; 
 		isHDR = 1;
 		isDolby = 1;
-		FindModifiers(DRM_FORMAT_ARGB2101010, HDRplaneId);
+		FindModifiers(DRM_FORMAT_P030, HDRplaneId);
 		DoViWindowSetup();
 	} else {
 		ofLog() << "DRM: panel is not HDR capable";
@@ -1671,6 +1751,24 @@ EGL_info();
 	
 }
 
+void ofxRPI4Window::UploadImage(GLenum textureTarget)
+{
+	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES =
+        (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)eglGetProcAddress("glEGLImageTargetTexture2DOES");
+    assert(glEGLImageTargetTexture2DOES);
+	
+	glEGLImageTargetTexture2DOES(textureTarget, image);
+}
+
+void ofxRPI4Window::DestroyImage()
+{
+	PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR =
+		(PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
+	assert(eglDestroyImageKHR);
+	
+	eglDestroyImageKHR(display, image);
+}
+
 void ofxRPI4Window::DoViWindowSetup()
 {
 	if (!DestroyWindow()) 
@@ -1704,7 +1802,7 @@ void ofxRPI4Window::DoViWindowSetup()
 
 	} else {
 
-		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : NULL);
+		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? modifiers[0] : NULL);
 	}
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ARGB2101010, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
@@ -1857,14 +1955,14 @@ void ofxRPI4Window::DoViWindowSetup()
 //    eglSurfaceAttrib(display,surface, SurfaceAttribs[i],EGLint(DisplayChromacityList[1].ChromaVals[i] * EGL_METADATA_SCALING_EXT));
 //}
 #if 1
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[2].RedX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[2].RedY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[2].GreenX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[3],EGLint(DisplayChromacityList[2].GreenY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[4],EGLint(DisplayChromacityList[2].BlueX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[5],EGLint(DisplayChromacityList[2].BlueY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[6],EGLint(DisplayChromacityList[2].WhiteX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[2].WhiteY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[1].RedX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[1].RedY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[1].GreenX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[3],EGLint(DisplayChromacityList[1].GreenY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[4],EGLint(DisplayChromacityList[1].BlueX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[5],EGLint(DisplayChromacityList[1].BlueY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[6],EGLint(DisplayChromacityList[1].WhiteX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[1].WhiteY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
 #endif
@@ -1876,7 +1974,62 @@ void ofxRPI4Window::DoViWindowSetup()
             auto error = eglGetError();
             ofLogError() << "surface ERROR: " << eglErrorString(error);
         }
-            
+#if 1
+	EGLint image_attribs[] = {
+		EGL_WIDTH, mode.hdisplay,
+		EGL_HEIGHT, mode.vdisplay,
+		EGL_LINUX_DRM_FOURCC_EXT, fourcc_code('P', '0', '3', '0'),
+		EGL_DMA_BUF_PLANE0_FD_EXT, 18,// descriptor->objects[layer->planes[0].object_index].fd,
+		EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,//layer->planes[0].offset,
+		EGL_DMA_BUF_PLANE0_PITCH_EXT, 7680,//layer->planes[0].pitch,
+		EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, static_cast<EGLint>(modifiers[0] & 0xFFFFFFFF),
+		EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, static_cast<EGLint>(modifiers[0] >> 32),
+
+		EGL_DMA_BUF_PLANE1_FD_EXT, 18,//descriptor->objects[layer->planes[1].object_index].fd,
+		EGL_DMA_BUF_PLANE1_OFFSET_EXT, 0,//layer->planes[1].offset,
+		EGL_DMA_BUF_PLANE1_PITCH_EXT, 7680,//layer->planes[1].pitch,
+		EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, static_cast<EGLint>(modifiers[1] & 0xFFFFFFFF),
+		EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT, static_cast<EGLint>(modifiers[1] >> 32),
+		EGL_YUV_COLOR_SPACE_HINT_EXT, EGL_ITU_REC2020_EXT,
+		EGL_SAMPLE_RANGE_HINT_EXT, EGL_YUV_FULL_RANGE_EXT,
+		EGL_YUV_CHROMA_VERTICAL_SITING_HINT_EXT, EGL_YUV_CHROMA_SITING_0_EXT,
+		EGL_YUV_CHROMA_HORIZONTAL_SITING_HINT_EXT, EGL_YUV_CHROMA_SITING_0_EXT,
+		EGL_NONE
+	};
+	
+	PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR =
+		(PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+	assert(eglCreateImageKHR);
+	
+	image = eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)NULL, image_attribs);
+
+
+
+	if (!image)
+	{
+		auto error = eglGetError();
+		ofLog(OF_LOG_VERBOSE, "{%s} - failed to import buffer into EGL image: {%s}",
+				__FUNCTION__, eglErrorString(error));
+
+	}
+PFNEGLQUERYDMABUFFORMATSEXTPROC eglQueryDmaBufFormatsEXT =
+      (PFNEGLQUERYDMABUFFORMATSEXTPROC)eglGetProcAddress("eglQueryDmaBufFormatsEXT");
+       EGLint num_formats = 0;
+	   EGLint formats[50];
+        bool ok = eglQueryDmaBufFormatsEXT(display, 0, NULL,
+                                           &num_formats);
+        if (ok && num_formats) {
+//formats = calloc(num_formats, sizeof(EGLint));
+            ok = eglQueryDmaBufFormatsEXT(display, num_formats,
+                                          formats, &num_formats);
+   
+
+            ofLog() << "EGL formats supported:";
+            for (int i = 0; i < num_formats; ++i) {
+				ofLog() << hex << formats[i];
+			}
+		}
+#endif           
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
@@ -2133,9 +2286,9 @@ void ofxRPI4Window::update()
 	if (flip) {
 		if (isHDR && !isDolby)
 		{ 
-			HDRWindowSetup();
+	//		HDRWindowSetup();
 		} else if (isHDR && isDolby) {
-			DoViWindowSetup();	
+//			DoViWindowSetup();	
 		} else {
 			SDRWindowSetup();
 		}
@@ -2206,25 +2359,23 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
   fb->bo = bo;
   fb->format = gbm_bo_get_format(bo);
 
-  uint32_t width,
-           height,
-           handles[4] = {0},
+  uint32_t handles[4] = {0},
            strides[4] = {0},
            offsets[4] = {0};
 
-  uint64_t modifiers[4] = {0};
+  uint64_t modifier[4] = {0};
   
    
-	width = gbm_bo_get_width(bo);
-	height = gbm_bo_get_height(bo);
+	buffer_width = gbm_bo_get_width(bo);
+	buffer_height = gbm_bo_get_height(bo);
 
 #if defined(HAS_GBM_MODIFIERS)
-  for (int i = 0; i < gbm_bo_get_plane_count(bo); i++)
+  for (int i = 0; i < gbm_bo_get_plane_count(bo); i++) 
   {
     handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
     strides[i] = gbm_bo_get_stride_for_plane(bo, i);
     offsets[i] = gbm_bo_get_offset(bo, i);
-    modifiers[i] = gbm_bo_get_modifier(bo);
+    modifier[i] = gbm_bo_get_modifier(bo);
   }
 #else
   handles[0] = gbm_bo_get_handle(bo).u32;
@@ -2234,20 +2385,20 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 
   uint32_t flags = 0;
 
-	  if (modifiers[0] && modifiers[0] != DRM_FORMAT_MOD_INVALID)
+	  if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
   {
     flags |= DRM_MODE_FB_MODIFIERS;
    printf("%s - using modifier: {:%llx}\n", __func__, modifiers[0]);
   }
 	
  int ret = drmModeAddFB2WithModifiers(drm_fd,
-                                       width,
-                                       height,
+                                       buffer_width,
+                                       buffer_height,
                                        fb->format,
                                        handles,
                                        strides,
                                        offsets,
-                                       modifiers,
+                                       modifier,
                                        &fb->fb_id,
                                        flags);
 
@@ -2257,8 +2408,8 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 			ofLogError() << "DRM: Modifiers failed!";
 		
     ret = drmModeAddFB2(drm_fd,
-                        width,
-                        height,
+                        buffer_width,
+                        buffer_height,
                         fb->format,
                         handles,
                         strides,
@@ -2346,7 +2497,7 @@ int ret;
 	struct drm_mode_create_dumb create_request = {
 		mode.vdisplay, //height
 		mode.hdisplay, //width
-		32		//bpp
+		16		//bpp
 	};
 	ret = ioctl(device, DRM_IOCTL_MODE_CREATE_DUMB, &create_request);
 
@@ -2368,23 +2519,22 @@ ret = drmModeRmFB(device, crtc->buffer_id);
     printf("drmModeRmFB failed for fb_id %d with error %d\n", crtc->buffer_id, ret);
   }
 	/* create framebuffer object for the dumb-buffer */
-	uint32_t bo_handles[4] = { create_request.handle };
-	uint32_t pitches[4] = { create_request.pitch };
-	uint32_t offsets[4] = { 0 };
+	uint32_t bo_handles[4] = { create_request.handle, create_request.handle  };
+	uint32_t pitches[4] = { create_request.pitch, create_request.pitch };
+	uint32_t offsets[4] = { 0, 276480  };
 	 uint32_t flags = 0;
 uint64_t modifier[4] = { modifiers[1], modifiers[1] };
 	uint32_t frame_buffer_id;
 	
-	if (modifiers[0] && modifiers[0] != DRM_FORMAT_MOD_INVALID) 
+	if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID) 
 	{
-		uint32_t flags = DRM_MODE_FB_MODIFIERS;
-		// modifier[4]  = 
+		flags = DRM_MODE_FB_MODIFIERS;
 	}
 
 	ret = drmModeAddFB2WithModifiers(
 		device,
 		mode.hdisplay, mode.vdisplay,
-		DRM_FORMAT_ARGB8888, bo_handles,
+		DRM_FORMAT_P030, bo_handles,
 		pitches, offsets, modifier, &frame_buffer_id, flags
 	);
 
@@ -2479,7 +2629,7 @@ return frame_buffer_id;
 void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 {
   bool ok;
-
+  //disable CRTC
  			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_ID",
 					&prop_id, NULL, &prop);
@@ -2492,8 +2642,7 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "FB_ID" /* in */, plane_id/* in */,
 					prop_id /* in */, 0/* in */, prop /* in */);  //value can also be crtc->buffer_id ** FB id to connect to
-
-
+					
   //disable Colorspace
 
 		ok = drm_mode_get_property(device, connectorId,
@@ -2503,11 +2652,11 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 		if (!ok || !(colorspace >= 0)) {
 			ofLogError() << "Unable to find Colorspace";
 		} else {
-		    /* set colorspace to Default = 9 */
+		    /* set colorspace to Default = 0 */
 			colorspace = 0; //TODO: Set this from web interface
- //      last_req = 1;
-	drm_mode_atomic_set_property(device, req, "Colorspace" /* in */, connectorId/* in */,
-			prop_id /* in */, colorspace /* in */, prop /* in */);
+
+			drm_mode_atomic_set_property(device, req, "Colorspace" /* in */, connectorId/* in */,
+					prop_id /* in */, colorspace /* in */, prop /* in */);
 
         }	
 		
@@ -2517,33 +2666,37 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable find or HDR_OUTPUT_METADATA not set";
+	if (!ok || !blob_id) {
+		ofLogError() << "Unable to find or HDR_OUTPUT_METADATA not set";
+	} else {
 
+		if (blob_id) {
+			drmModeDestroyPropertyBlob(device, blob_id);
+			blob_id = 0;
+		}
 
-    if (blob_id) {
-      drmModeDestroyPropertyBlob(device, blob_id);
-      blob_id = 0;
-    }
-
-	drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-			prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
+				prop_id /* in */, blob_id /* in */, prop /* in */);
+	}
 			
   //disable DOVI Metadata
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable find or DOVI_OUTPUT_METADATA not set";
-					
-
-    if (blob_id) {
-      drmModeDestroyPropertyBlob(device, blob_id);
-      blob_id = 0;
-    }
 last_req = 1;
-	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
-			prop_id /* in */, blob_id /* in */, prop /* in */);
+	if (!ok || !blob_id) {
+		ofLogError() << "Unable to find or DOVI_OUTPUT_METADATA not set";
+	} else {				
+
+		if (blob_id) {
+			drmModeDestroyPropertyBlob(device, blob_id);
+			blob_id = 0;
+		}
+
+		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
+				prop_id /* in */, blob_id /* in */, prop /* in */);
+	}
+last_req = 0;
 }
 
 int ofxRPI4Window::SetPlaneId(int isHDR)
@@ -2563,11 +2716,13 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id)
 			// disable plane when working layer no longer is active
 			DisablePlane(SDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
+						updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 0); // Disable DOVI infoframe
+
 			updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 1); // Display Gamut Rec2020
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorspace = 9; //BT2020_RGB
 			avi_infoframe.output_format = 2; //YCrCb422
-			avi_infoframe.max_bpc = 12; //12 bit
+			avi_infoframe.max_bpc = 10; //12 bit
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
 			avi_infoframe.c_range = 1; //YCbCr full range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
@@ -2576,9 +2731,9 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id)
 			DisablePlane(SDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
-			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
+			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 1); // Enable DOVI infoframe
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorspace = 9; //BT2020_YCC
+			avi_infoframe.colorspace = 9; //BT2020_YCC or BT2020_RGB??
 			avi_infoframe.output_format = 2; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = 10; // 12 bit
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
@@ -2615,65 +2770,68 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id)
 void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id)
 {
 	bool ok;
-    uint64_t blob_id, value;
-
-		ok = drm_mode_get_property(device, connectorId,
+    uint64_t blob_id;
+	// set connector CRTC property
+ 		ok = drm_mode_get_property(device, connectorId,
 				DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID",
-				&prop_id, &value, &prop);
+				&prop_id, NULL, &prop);
 
-		if (!ok || !value)
-			ofLogError() << "DRM: Unable find CRTC_ID";
+		if (!ok)
+			ofLogError() << "DRM: Unable to find CRTC_ID";
 				//	output_format = avi_infoframe.output_format;
 
-
+	
 	first_req = 1;
 	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, connectorId/* in */,
-			prop_id /* in */, value /* in */, prop /* in */);
-			
-	
-			
+			prop_id /* in */, crtc->crtc_id /* in */, prop /* in */);	
+    //set CRTC mode 			
 		ok = drm_mode_get_property(device, crtc->crtc_id,
 				DRM_MODE_OBJECT_CRTC, "MODE_ID",
 				&prop_id, &blob_id, &prop);
 
 		if (!ok || !blob_id)
-			ofLogError() << "DRM: Unable find MODE_ID";
+			ofLogError() << "DRM: Unable to find MODE_ID";
 	if (blob_id)
       drmModeDestroyPropertyBlob(device, blob_id);
     blob_id = 0;
 
 	drmModeCreatePropertyBlob(device, &mode, sizeof(mode),
 					      (uint32_t*)&blob_id);	
-
+						  
 	drm_mode_atomic_set_property(device, req, "MODE_ID" /* in */, crtc->crtc_id/* in */,
 			prop_id /* in */, blob_id /* in */, prop /* in */);
-			
+	//set CRTC as Active		
 		ok = drm_mode_get_property(device, crtc->crtc_id,
 				DRM_MODE_OBJECT_CRTC, "ACTIVE",
 				&prop_id, NULL, &prop);
 
 		if (!ok)
-			ofLogError() << "DRM: Unable find ACTIVE";
+			ofLogError() << "DRM: Unable to find ACTIVE";
 
 
-//	last_req = 1;
 	drm_mode_atomic_set_property(device, req, "ACTIVE" /* in */, crtc->crtc_id/* in */,
 			prop_id /* in */, 1 /* in */, prop /* in */);
 
- 
-	
- 			ok = drm_mode_get_property(device, plane_id,
+	//set CRTC dimenstions to match mode and plane
+			crtc->x = static_cast<int32_t>(currentWindowRect.x);
+			crtc->y = static_cast<int32_t>(currentWindowRect.y);
+			crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
+			crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
+			
+	//set plane parameters
+
+			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_ID",
 					&prop_id, NULL, &prop);
-//	first_req = 1;
- 	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, plane_id/* in */,
+
+	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, plane_id/* in */,
 					prop_id /* in */, crtc->crtc_id /* in */, prop /* in */);
 					
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "FB_ID",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "FB_ID" /* in */, plane_id/* in */,
-					prop_id /* in */, fb_id /* in */, prop /* in */);  //value can also be crtc->buffer_id ** FB id to connect to
+					prop_id /* in */, fb_id /* in */, prop /* in */);  //value can also be crtc->buffer_id ** FB id to connect to					
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "SRC_X",
@@ -2691,38 +2849,38 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 					DRM_MODE_OBJECT_PLANE, "SRC_W",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "SRC_W" /* in */, plane_id/* in */,
-					prop_id /* in */, ((int)currentWindowRect.width << 16) /* in */, prop /* in */);
+					prop_id /* in */, buffer_width << 16 /* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "SRC_H",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "SRC_H" /* in */, plane_id/* in */,
-					prop_id /* in */, ((int)currentWindowRect.height << 16) /* in */, prop /* in */);
+					prop_id /* in */, buffer_height << 16/* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_X",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_X" /* in */, plane_id/* in */,
-					prop_id /* in */, static_cast<int32_t>(currentWindowRect.x) /*crtc->x *//* in */, prop /* in */);
-
+					prop_id /* in */, crtc->x /* in */, prop /* in */);
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_Y",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_Y" /* in */, plane_id/* in */,
-					prop_id /* in */, static_cast<int32_t>(currentWindowRect.y) /*crtc->y *//* in */, prop /* in */);
+					prop_id /* in */, crtc->y /* in */, prop /* in */);
 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_W",
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "CRTC_W" /* in */, plane_id/* in */,
-					prop_id /* in */,((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1)/* crtc->width */ /* in */, prop /* in */);
-
+					prop_id /* in */,crtc->width  /* in */, prop /* in */);
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "CRTC_H",
 					&prop_id, NULL, &prop);
 	last_req = 1;
 	drm_mode_atomic_set_property(device, req, "CRTC_H" /* in */, plane_id/* in */,
-					prop_id /* in */, ((static_cast<uint32_t>(currentWindowRect.height) + 1) & ~1) /*crtc->height */ /* in */, prop /* in */);
+					prop_id /* in */, crtc->height /* in */, prop /* in */);
+
+
 
 }
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
@@ -2734,58 +2892,45 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable find or DOVI_OUTPUT_METADATA not set";
-	
-	if (blob_id)
-      drmModeDestroyPropertyBlob(device, blob_id);
-    blob_id = 0;	
-
+	if (!ok) {
+		ofLogError() << "Unable to find DOVI_OUTPUT_METADATA";
+	} else {
+		if (blob_id) {
+			drmModeDestroyPropertyBlob(device, blob_id);
+			blob_id = 0;
+		}
+	}
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable find or HDR_OUTPUT_METADATA not set";
-#if 0	
-	if (blob_id)
-	{
-		blob = drmModeGetPropertyBlob(device, blob_id);
-		if (!blob) {
-			ofLogError() << "Could not get drmModeGetPropertyBlob";
+	if (!ok) {
+		ofLogError() << "Unable to find HDR_OUTPUT_METADATA";
 
-		}
-    }
-#endif	
-	if (blob_id)
-      drmModeDestroyPropertyBlob(device, blob_id);
-    blob_id = 0;
+	} else {
+		if (blob_id)
+			drmModeDestroyPropertyBlob(device, blob_id);
+		blob_id = 0;
 	
-	struct drm_hdr_output_metadata meta; //= static_cast<drm_hdr_output_metadata*>(blob->data);
-						//memset(meta, 0, sizeof(*meta));
+		struct drm_hdr_output_metadata meta;
 
-
-
-	//					if (meta->metadata_type == 0 /*HDMI_STATIC_METADATA_TYPE1*/) {
-						//	struct drm_hdr_metadata_infoframe* info = &meta->hdmi_metadata_type1;
-
-	meta.metadata_type = static_cast<int>(HDMI_STATIC_METADATA_TYPE1);
-	meta.hdmi_metadata_type1.eotf = eotf;
-	meta.hdmi_metadata_type1.display_primaries[0].x = (DisplayChromacityList[idx].RedX * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.display_primaries[0].y = (DisplayChromacityList[idx].RedY * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.display_primaries[1].x = (DisplayChromacityList[idx].GreenX * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.display_primaries[1].y = (DisplayChromacityList[idx].GreenY * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.display_primaries[2].x = (DisplayChromacityList[idx].BlueX * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.display_primaries[2].y = (DisplayChromacityList[idx].BlueY * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.white_point.x = (DisplayChromacityList[idx].WhiteX * EGL_METADATA_SCALING_EXT);
-	meta.hdmi_metadata_type1.white_point.y = (DisplayChromacityList[idx].WhiteY * EGL_METADATA_SCALING_EXT);
+		meta.metadata_type = static_cast<int>(HDMI_STATIC_METADATA_TYPE1);
+		meta.hdmi_metadata_type1.eotf = eotf;
+		meta.hdmi_metadata_type1.display_primaries[0].x = (DisplayChromacityList[idx].RedX * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.display_primaries[0].y = (DisplayChromacityList[idx].RedY * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.display_primaries[1].x = (DisplayChromacityList[idx].GreenX * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.display_primaries[1].y = (DisplayChromacityList[idx].GreenY * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.display_primaries[2].x = (DisplayChromacityList[idx].BlueX * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.display_primaries[2].y = (DisplayChromacityList[idx].BlueY * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.white_point.x = (DisplayChromacityList[idx].WhiteX * EGL_METADATA_SCALING_EXT);
+		meta.hdmi_metadata_type1.white_point.y = (DisplayChromacityList[idx].WhiteY * EGL_METADATA_SCALING_EXT);
 //	meta.hdmi_metadata_type1.max_display_mastering_luminance = std::round(av_q2d(10000.0f * 10000.0f));
 //	meta.hdmi_metadata_type1.min_display_mastering_luminance = std::round(av_q2d((0.001f    * 10000.0f));
-	meta.hdmi_metadata_type1.max_display_mastering_luminance = (uint16_t)(10000.0f * 10000.0f);
-	meta.hdmi_metadata_type1.min_display_mastering_luminance = (uint16_t)(0.001f    * 10000.0f);
+		meta.hdmi_metadata_type1.max_display_mastering_luminance = (uint16_t)(10000.0f * 10000.0f);
+		meta.hdmi_metadata_type1.min_display_mastering_luminance = (uint16_t)(0.001f    * 10000.0f);
 		
-	meta.hdmi_metadata_type1.max_fall = 400.0f;
-	meta.hdmi_metadata_type1.max_cll = 10000.0f;
-	drmModeCreatePropertyBlob(device, &meta, sizeof(meta), (uint32_t*)&blob_id); 
+		meta.hdmi_metadata_type1.max_fall = 400.0f;
+		meta.hdmi_metadata_type1.max_cll = 10000.0f;
+		drmModeCreatePropertyBlob(device, &meta, sizeof(meta), (uint32_t*)&blob_id); 
 			
 	
 #if 0
@@ -2800,25 +2945,26 @@ first_req = 1;
 last_req = 1;
 //	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
 //			prop_id /* in */, blob_id /* in */, prop /* in */);
-	drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-			prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
+				prop_id /* in */, blob_id /* in */, prop /* in */);
+	}
 #if 0
 	if (ret != 0) {
 		ofLogError() << "Unable to set HDR_OUTPUT_METADATA";
 	//	return false;
 	} else {
-//		hdr_output_metadata_info(device,blob_id);
-		dovi_output_metadata_info(device,blob_id);
+		hdr_output_metadata_info(device,blob_id);
+//		dovi_output_metadata_info(device,blob_id);
 
 	//	return true;
 	}
 #endif
 //	drmModeFreePropertyBlob(blob);	 	
 
-
+last_req = 0;
 }
 
-void ofxRPI4Window::updateDoVi_Infoframe(hdmi_eotf eotf, int idx) //
+void ofxRPI4Window::updateDoVi_Infoframe(hdmi_eotf eotf, int enable) //
 {
 	bool ok;
 	int ret;
@@ -2829,7 +2975,7 @@ void ofxRPI4Window::updateDoVi_Infoframe(hdmi_eotf eotf, int idx) //
 			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
 	if (!ok || !blob_id)
-		ofLogError() << "Unable find or HDR_OUTPUT_METADATA not set";
+		ofLogError() << "Unable to find or HDR_OUTPUT_METADATA not set";
 
 	if (blob_id)
       drmModeDestroyPropertyBlob(device, blob_id);
@@ -2839,22 +2985,22 @@ void ofxRPI4Window::updateDoVi_Infoframe(hdmi_eotf eotf, int idx) //
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
 			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable find or DOVI_OUTPUT_METADATA not set";
+	if (!ok) {
+		ofLogError() << "Unable to find DOVI_OUTPUT_METADATA";
+	} else {
+		if (blob_id)
+			drmModeDestroyPropertyBlob(device, blob_id);
+		blob_id = 0;	
 	
-	if (blob_id)
-      drmModeDestroyPropertyBlob(device, blob_id);
-    blob_id = 0;	
-	
-	struct dovi_output_metadata dovi;
+		struct dovi_output_metadata dovi;
 	 
-	dovi.dv_status = 1;
-	dovi.dv_interface = 1; 
-	dovi.backlight_metadata = 0;
-	dovi.backlight_max_luminance = 0;
-	dovi.aux_runmode = 0;
-	dovi.aux_version = 0;
-	dovi.aux_debug = 0;
+		dovi.dv_status = enable; //set to 1 to enable dovi infoframe 
+		dovi.dv_interface = 1; 
+		dovi.backlight_metadata = 0;
+		dovi.backlight_max_luminance = 0;
+		dovi.aux_runmode = 0;
+		dovi.aux_version = 0;
+		dovi.aux_debug = 0;
 		drmModeCreatePropertyBlob(device, &dovi, sizeof(dovi), (uint32_t*)&blob_id); 
 first_req = 1;
 last_req = 1;
@@ -2864,8 +3010,8 @@ last_req = 1;
 //			prop_id /* in */, blob_id /* in */, prop /* in */);
 
 //	drmModeFreePropertyBlob(blob);	 	
-
-
+	}
+last_req = 0;
 }
 bool ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
 {
@@ -2873,13 +3019,13 @@ bool ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 		ok = drm_mode_get_property(device, connectorId,
 				DRM_MODE_OBJECT_CONNECTOR, "Colorspace",
 				&prop_id, &colorspace, &prop);
-
+first_req = 1; 
 		if (!ok || !(colorspace >= 0)) {
 			ofLogError() << "Unable to find Colorspace";
 		} else {
 		    /* set colorspace to BT2020_RGB = 9 */
 			colorspace = avi_infoframe.colorspace; //TODO: Set this from web interface
-first_req = 1;
+
 	drm_mode_atomic_set_property(device, req, "Colorspace" /* in */, connectorId/* in */,
 			prop_id /* in */, colorspace /* in */, prop /* in */);
 
@@ -2892,21 +3038,20 @@ first_req = 1;
 				DRM_MODE_OBJECT_CONNECTOR, "output format",
 				&prop_id, &output_format, &prop);
 
-		if (!ok || !output_format)
-			ofLogError() << "DRM: Unable find OUTPUT FORMAT";
-					output_format = avi_infoframe.output_format;
+		if (!ok || !output_format) {
+			ofLogError() << "DRM: Unable to find OUTPUT FORMAT";
+		} else {
+			output_format = avi_infoframe.output_format;
 
-
-
-	drm_mode_atomic_set_property(device, req, "output format" /* in */, connectorId/* in */,
-			prop_id /* in */, output_format /* in */, prop /* in */);
-
+			drm_mode_atomic_set_property(device, req, "output format" /* in */, connectorId/* in */,
+					prop_id /* in */, output_format /* in */, prop /* in */);
+		}
 		ok = drm_mode_get_property(device, connectorId,
 				DRM_MODE_OBJECT_CONNECTOR, "max bpc",
 				&prop_id, &max_bpc, &prop);
 
 		if (!ok || !max_bpc) {
-			ofLogError() << "DRM: Unable find MAX_BPC";
+			ofLogError() << "DRM: Unable to find MAX_BPC";
 		} else {
 		
 			max_bpc = avi_infoframe.max_bpc;
@@ -2942,7 +3087,7 @@ first_req = 1;
 			if (!ok || !(c_enc >= 0)) {
 				ofLogError() << "DRM: Unable find COLOR_ENCODING";
 			} else {
-				c_enc = avi_infoframe.c_enc; //set to ITU-R BT.2020 YCbCr
+				c_enc = avi_infoframe.c_enc; //set to ITU-R BT.601 YCbCr or ITU-R BT.709 YCbCr or ITU-R BT.2020 YCbCr
 
 				drm_mode_atomic_set_property(device, req, "COLOR_ENCODING" /* in */, plane_id/* in */,
 					prop_id /* in */, c_enc /* in */, prop /* in */);
@@ -2951,17 +3096,18 @@ first_req = 1;
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "COLOR_RANGE",
 					&prop_id, &c_range, &prop);
+last_req = 1;
 			if (!ok || !(c_range >= 0)) {
 				ofLogError() << "DRM: Unable find COLOR_RANGE";
 			} else {
 				c_range = avi_infoframe.c_range; //set to YCbCr full range	
-last_req = 1;
+
 				drm_mode_atomic_set_property(device, req, "COLOR_RANGE" /* in */, plane_id/* in */,
 				prop_id /* in */, c_range /* in */, prop /* in */);
 			}
 
 	
-
+last_req = 0;
 
 	return true;
 }

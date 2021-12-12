@@ -9,10 +9,12 @@ int main( ){
     
     ofGLESWindowSettings settings;
     settings.setSize(1280, 720);
-    settings.setGLESVersion(2);
+	settings.glesVersion=3;
     auto window = std::make_shared<ofxRPI4Window>(settings);
     
     auto app = std::make_shared<ofApp>();
+	//	ofCreateWindow(settings);
     ofRunApp(window, app);
-    ofRunMainLoop();
+   ofRunMainLoop();
+ // ofRunApp(new ofApp());
 }

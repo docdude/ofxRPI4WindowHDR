@@ -196,8 +196,10 @@ public:
     
 
     EGLDisplay display;
+	EGLImageKHR image;
     EGLContext context;
     EGLSurface surface;
+	
 	EGLint SurfaceAttribs [10] = {
 		EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT,       
 		EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT,
@@ -234,6 +236,7 @@ public:
 		//	uint64_t output_format;
     gbm_bo *previousBo;
     uint32_t previousFb;
+	uint32_t buffer_width, buffer_height;
     
     ofRectangle currentWindowRect;
     ofOrientation orientation;
@@ -302,7 +305,7 @@ public:
 	/* Userspace access to HDR, Dolby Vision, AVI Infoframes */
 	void updateHDR_Infoframe(enum hdmi_eotf, int idx);
 	bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
-	void updateDoVi_Infoframe(enum hdmi_eotf, int idx);
+	void updateDoVi_Infoframe(enum hdmi_eotf, int enable);
 
 	drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
     void swapBuffers() override;
@@ -318,6 +321,7 @@ public:
 	/* Setup surfaces */
     void setup(const ofGLESWindowSettings & settings);
 	void HDRWindowSetup();
+	void UploadImage(GLenum textureTarget);
 	void DoViWindowSetup();
     void SDRWindowSetup();   
 	
@@ -330,6 +334,7 @@ public:
     bool DestroyWindow();
 	void DestroyContext();
 	void DestroySurface();
+	void DestroyImage();
     virtual ~ofxRPI4Window();
     bool skipRender;
     struct timeval t0;
