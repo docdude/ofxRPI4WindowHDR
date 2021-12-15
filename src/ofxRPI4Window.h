@@ -231,6 +231,8 @@ public:
 	unsigned int num_modifiers = 0;
 	uint64_t *modifiers = NULL;
 	avi_infoframe property_id;
+	static struct drm_hdr_output_metadata hdr_metadata;
+	static struct avi_infoframe avi_info;
 		uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
 		//	uint64_t output_format;
