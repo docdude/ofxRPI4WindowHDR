@@ -127,13 +127,14 @@ struct dovi_output_metadata {
 	/**
 	 * @dv_status: Dolby Vision status, active/not active
 	 */
-	__u8 dv_status;
-	__u8 dv_interface; 
-	__u8 backlight_metadata;
-	__u8 backlight_max_luminance;
-	__u8 aux_runmode;
-	__u8 aux_version;
-	__u8 aux_debug;
+	uint32_t oui;
+	uint8_t dv_status;
+	uint8_t dv_interface; 
+	uint8_t backlight_metadata;
+	uint8_t backlight_max_luminance;
+	uint8_t aux_runmode;
+	uint8_t aux_version;
+	uint8_t aux_debug;
 
 };
 #endif  // HAVE_DRM_HDR_OUTPUT_METADATA
@@ -156,7 +157,8 @@ struct drm_fb {
 };
 
 struct avi_infoframe {
-	uint32_t colorspace;
+	uint32_t colorimetry;
+	uint32_t rgb_quant_range;
     uint32_t max_bpc; 
 	uint32_t output_format;
 	uint32_t c_enc; 
@@ -168,26 +170,26 @@ struct avi_infoframe {
 
 struct DisplayChromacities
 {
-	float RedX;
-	float RedY;
-	float GreenX;
-	float GreenY;
-	float BlueX;
-	float BlueY;
-	float WhiteX;
-	float WhiteY;
+	double RedX;
+	double RedY;
+	double GreenX;
+	double GreenY;
+	double BlueX;
+	double BlueY;
+	double WhiteX;
+	double WhiteY;
 };
 
 
 
 static const DisplayChromacities DisplayChromacityList[] =
 {
-	{ 0.64000f, 0.33000f, 0.30000f, 0.60000f, 0.15000f, 0.06000f, 0.31270f, 0.32900f }, // Display Gamut Rec709
-	{ 0.70800f, 0.29200f, 0.17000f, 0.79700f, 0.13100f, 0.04600f, 0.31270f, 0.32900f }, // Display Gamut Rec2020
-	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.31270f, 0.32900f }, // Display Gamut P3D65
-	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.31400f, 0.35100f }, // Display Gamut P3DCI(Theater)
-	{ 0.68000f, 0.32000f, 0.26500f, 0.69000f, 0.15000f, 0.06000f, 0.32168f, 0.33767f }, // Display Gamut P3D60(ACES Cinema)
-	{ 0.67030f, 0.32970f, 0.26060f, 0.67320f, 0.14420f, 0.05120f, 0.31270f, 0.32900f }, //videoforge dovi ??
+	{ 0.64000, 0.33000, 0.30000, 0.60000, 0.15000, 0.06000, 0.31270, 0.32900 }, // Display Gamut Rec709
+	{ 0.70800, 0.29200, 0.17000, 0.79700, 0.13100, 0.04600, 0.31270, 0.32900 }, // Display Gamut Rec2020
+	{ 0.68000, 0.32000, 0.26500, 0.69000, 0.15000, 0.06000, 0.31270, 0.32900 }, // Display Gamut P3D65
+	{ 0.68000, 0.32000, 0.26500, 0.69000, 0.15000, 0.06000, 0.31400, 0.35100 }, // Display Gamut P3DCI(Theater)
+	{ 0.68000, 0.32000, 0.26500, 0.69000, 0.15000, 0.06000, 0.32168, 0.33767 }, // Display Gamut P3D60(ACES Cinema)
+	{ 0.67030, 0.32970, 0.26060, 0.67320, 0.14420, 0.05120, 0.31270, 0.32900 }, //videoforge dovi ??
 };
 
 class ofxRPI4Window : public ofAppBaseGLESWindow
@@ -215,27 +217,29 @@ public:
     int device;
 
     drmModeModeInfo mode;
-    struct gbm_device* gbmDevice;
-    struct gbm_surface* gbmSurface;
+    struct gbm_device* gbmDevice = nullptr;
+    struct gbm_surface* gbmSurface = nullptr;
     drmModeCrtc *crtc;
 	int crtc_index;
     uint32_t connectorId, HDRplaneId, SDRplaneId;
 	//	bool ok;
-		uint64_t colorspace, max_bpc, output_format, c_enc, c_range, in_formats;
+	uint64_t colorimetry, rgb_quant_range, max_bpc, output_format, c_enc, c_range, in_formats;
 	uint32_t prop_id;
-				uint64_t crtc_id, fb_id, blob_id;
-		drmModePropertyPtr prop;
-		drmModeAtomicReq *req;
-			drmModePlaneRes *res;
+	uint64_t crtc_id, fb_id, blob_id;
+	drmModePropertyPtr prop;
+	drmModeAtomicReq *req;
+	drmModePlaneRes *res;
 	drmModePlane *plane;
 	unsigned int num_modifiers = 0;
 	uint64_t *modifiers = NULL;
 	avi_infoframe property_id;
-		uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
+	static struct drm_hdr_output_metadata hdr_metadata;
+	static struct avi_infoframe avi_info;
+	uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
 		//	uint64_t output_format;
-    gbm_bo *previousBo;
-    uint32_t previousFb;
+    gbm_bo *previousBo = NULL;
+    uint32_t previousFb = 0;
 	uint32_t buffer_width, buffer_height;
     
     ofRectangle currentWindowRect;
@@ -272,21 +276,27 @@ public:
 	void EGL_info();
 	/* DRM utilities, get/set properties, atomic set */
 	bool drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t object_type,
-		     const char *name, uint32_t *prop_id /* out */,
-		     uint64_t *value /* out */,
-		     drmModePropertyPtr *prop /* out */);
+				const char *name, uint32_t *prop_id /* out */,
+				uint64_t *value /* out */,
+				drmModePropertyPtr *prop /* out */);
 	int last_req = 0;
 	int first_req = 0;
 	bool flip = true;
+	/* Static variables set from command line */
 	static int isHDR;
 	static int isDolby;
-
+	static int is_std_Dolby;
+	static int bit_depth;
+	static int mode_idx;
+	
+	int current_bit_depth;
+	
 	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
 	void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
 	void FindModifiers(uint32_t format, uint32_t plane_id);
 	int find_device();
-	bool InitDRM();
+	bool InitDRM(); 
 	
 	
 	int CreateFB_ID();
@@ -305,7 +315,7 @@ public:
 	/* Userspace access to HDR, Dolby Vision, AVI Infoframes */
 	void updateHDR_Infoframe(enum hdmi_eotf, int idx);
 	bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
-	void updateDoVi_Infoframe(enum hdmi_eotf, int enable);
+	void updateDoVi_Infoframe(enum hdmi_eotf, int enable, int dv_interface);
 
 	drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
     void swapBuffers() override;
@@ -322,7 +332,7 @@ public:
     void setup(const ofGLESWindowSettings & settings);
 	void HDRWindowSetup();
 	void UploadImage(GLenum textureTarget);
-	void DoViWindowSetup();
+	void Bit10_16WindowSetup();
     void SDRWindowSetup();   
 	
     std::shared_ptr<ofBaseRenderer> currentRenderer;
