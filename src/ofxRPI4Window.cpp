@@ -1,11 +1,6 @@
 #include "ofxRPI4Window.h"
 #include "igt_edid.h"
-extern "C"
-{
-#include <libavutil/frame.h>
-#include <libavutil/hwcontext_drm.h>
-#include <libavutil/mastering_display_metadata.h>
-}
+
 #include <fcntl.h>
 // O_CLOEXEC
 //#include <asm-generic/fcntl.h>
