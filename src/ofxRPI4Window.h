@@ -286,6 +286,7 @@ public:
 	static int isHDR;
 	static int isDolby;
 	static int is_std_Dolby;
+	static int hdr_primaries;
 	static int bit_depth;
 	static int mode_idx;
 	
