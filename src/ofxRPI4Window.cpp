@@ -1486,6 +1486,7 @@ int ofxRPI4Window::isDolby = 0;
 int ofxRPI4Window::is_std_Dolby = 0;
 int ofxRPI4Window::bit_depth = 8;
 int ofxRPI4Window::mode_idx = 0;
+hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2);
 int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
 drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
@@ -2738,10 +2739,13 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 			&prop_id, &blob_id, &prop);
 	if (!ok || !blob_id) {
 		ofLogError() << "Unable to find or HDR_OUTPUT_METADATA not set";
+		blob_id = 0; //set to 0 to be sure property is disabled
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
+				prop_id /* in */, blob_id /* in */, prop /* in */);
 	} else {
 printf ("***********************************\n");
 		if (blob_id) {
-			drmModeDestroyPropertyBlob(device, blob_id);
+		//	drmModeDestroyPropertyBlob(device, blob_id);
 			blob_id = 0;
 			printf ("***********************************\n");
 		}
@@ -2757,6 +2761,9 @@ printf ("***********************************\n");
 last_req = 1;
 	if (!ok || !blob_id) {
 		ofLogError() << "Unable to find or DOVI_OUTPUT_METADATA not set";
+		blob_id = 0; //set to 0 to be sure property is disabled
+		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
+				prop_id /* in */, blob_id /* in */, prop /* in */);
 	} else {				
 
 		if (blob_id) {
@@ -2767,6 +2774,8 @@ last_req = 1;
 		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
 				prop_id /* in */, blob_id /* in */, prop /* in */);
 	}
+
+		
 last_req = 0;
 }
 
@@ -2796,9 +2805,9 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
-			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 0 , 0); // Disable DOVI infoframe
+			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0 , 0); // Disable DOVI infoframe
  
-			updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, ofxRPI4Window::hdr_primaries);// Display Gamut P3D65
+			updateHDR_Infoframe(ofxRPI4Window::eotf, ofxRPI4Window::hdr_primaries);// Display Gamut P3D65
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 9; //BT2020_RGB
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range; //Full range [0-255]
@@ -2813,7 +2822,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
-			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 1 , 2); // Enable LLDV DOVI infoframe
+			updateDoVi_Infoframe(ofxRPI4Window::eotf, 1 , 2); // Enable LLDV DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 9; //BT2020_YCC or BT2020_RGB??
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range; //Full range [0-255]
@@ -2829,21 +2838,22 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
-			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 1 , 1); // Enable Standard DOVI infoframe
+			updateDoVi_Infoframe(ofxRPI4Window::eotf, 1 , 1); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 0; //RGB
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
-			avi_infoframe.max_bpc = 8; // only works in 8 bit
-			avi_infoframe.c_enc = 1; //ITU-R BT.709 YCbCr 
+			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
+			avi_infoframe.c_enc = 2; //ITU-R BT.709 YCbCr 
 			avi_infoframe.c_range = 1; //YCbCr Full Range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
 #endif
 		} else {
+			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(SDRplaneId, currentWindowRect, fb_id);
-			updateDoVi_Infoframe(HDMI_EOTF_SMPTE_ST2084, 0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
-			updateHDR_Infoframe(HDMI_EOTF_TRADITIONAL_GAMMA_SDR, 0); // Display Gamut Rec709
+//			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
+//			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 0; //Default
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range;  //Full range [0-255] = 2
@@ -2917,7 +2927,7 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 			crtc->x = static_cast<int32_t>(currentWindowRect.x);
 			crtc->y = static_cast<int32_t>(currentWindowRect.y);
 			crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
-			crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
+			crtc->height = ((static_cast<uint32_t>(currentWindowRect.height) + 1) & ~1);
 			
 	//set plane parameters 
 
@@ -2940,7 +2950,7 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 					&prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "SRC_X" /* in */, plane_id/* in */,
 					prop_id /* in */, 0 /* in */, prop /* in */);
-
+ 
 			ok = drm_mode_get_property(device, plane_id,
 					DRM_MODE_OBJECT_PLANE, "SRC_Y",
 					&prop_id, NULL, &prop);

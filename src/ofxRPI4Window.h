@@ -144,10 +144,12 @@ enum hdmi_metadata_type {
 };
 
 enum hdmi_eotf {
-	HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
-	HDMI_EOTF_TRADITIONAL_GAMMA_HDR,
-	HDMI_EOTF_SMPTE_ST2084,
-    HDMI_EOTF_BT_2100_HLG,
+	HDMI_EOTF_TRADITIONAL_GAMMA_SDR = 0,
+	HDMI_EOTF_TRADITIONAL_GAMMA_HDR = 1,
+	HDMI_EOTF_SMPTE_ST2084 = 2,
+    HDMI_EOTF_BT_2100_HLG = 3,
+	RESERVED_FOR_FUTURE_USE1 = 4,
+	RESERVED_FOR_FUTURE_USE2 = 5,	
 };
 
 struct drm_fb {
@@ -286,6 +288,7 @@ public:
 	static int isHDR;
 	static int isDolby;
 	static int is_std_Dolby;
+	static hdmi_eotf eotf;
 	static int hdr_primaries;
 	static int bit_depth;
 	static int mode_idx;
