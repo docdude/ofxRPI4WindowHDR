@@ -2365,7 +2365,7 @@ void ofxRPI4Window::update()
 	
     coreEvents.notifyUpdate();
 	if (flip) {
-		if (isHDR && !isDolby) { 
+		if (isHDR && !isDolby && !is_std_Dolby) { 
 			if (ofxRPI4Window::bit_depth <= 10) {
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
@@ -2392,8 +2392,14 @@ void ofxRPI4Window::update()
 
 		} 
 		else {
+		 	if (ofxRPI4Window::bit_depth == 10) {
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else {
+
 			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 			SDRWindowSetup();
+			}
 		}
 		//	flip = 0;
 		current_bit_depth = ofxRPI4Window::bit_depth;
