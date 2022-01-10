@@ -1549,6 +1549,16 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
 			} 
+		} else if (isHDR && !isDolby && !is_std_Dolby) {
+
+			ofLog() << "DRM: setting up HDR window/surface"; 
+			if (ofxRPI4Window::bit_depth <= 10) {
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
+				Bit10_16WindowSetup();
+			} 
 		} else {
 			ofLog() << "DRM: setting up SDR window/surface";
 			isHDR = 0;
