@@ -1205,12 +1205,22 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 bool ofxRPI4Window::InitDRM()
 {
 	bool ok;
+	int ret;
+	
 	device = find_device();
-
+	/* give up drm master in case we are first */
+	ret =		drmDropMaster(device);
+	if (ret < 0)
+    {
+      ofLogError() << "DRM: - failed to drop drm master: " << strerror(errno);
+	  exit(1);
+      } else {
+        ofLog() << "DRM: - successfully dropped drm master";		
+	}
     /* Programmer!! Save your sanity!!
      * VERY important or we won't get all the available planes on drmGetPlaneResources()!
      * We also need to enable the ATOMIC cap to see the atomic properties in objects!! */
-    int ret = drmSetClientCap(device, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    ret = drmSetClientCap(device, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
     if (ret)
        ofLogError() << "DRM: can't set UNIVERSAL PLANES cap";
     else
@@ -1237,7 +1247,8 @@ bool ofxRPI4Window::InitDRM()
    if (ret != 0)
      ofLogError() << "DRM: aspect ratio capability is not supported: " << strerror(errno);
 #endif
- 
+
+
     drmModeRes* resources = drmModeGetResources(device);
     bool passed = false;
     if (resources == NULL)
@@ -1365,7 +1376,7 @@ int foundHDR=0;
 	ofLog() << "DRM: Using CRTC_ID: " << crtc->crtc_id;
 	ofLog() << "DRM: Using HDR PLANE_ID: " << HDRplaneId;
 	ofLog() << "DRM: Using SDR PLANE_ID: " << SDRplaneId;	
-		
+
     ret = drmSetMaster(device);
     if (ret < 0)
     {
@@ -1387,6 +1398,7 @@ int foundHDR=0;
       {
         ofLogError() << "DRM: - failed to authorize drm magic: " << strerror(errno);
 	 	passed = false;
+		exit(1);
       } else {
 	    ofLog() << "DRM: - successfully authorized drm magic";
 	    passed = true;
@@ -1500,31 +1512,50 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     windowMode = OF_WINDOW;
     glesVersion = settings.glesVersion;
     InitDRM();
+ 
+	isHDR = ofxRPI4Window::isHDR;//1;
+	isDolby = ofxRPI4Window::isDolby; //1;
+	is_std_Dolby = ofxRPI4Window::is_std_Dolby; //1;
+	
     if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_HDR10) {
 		ofLog() << "DRM: panel is HDR capable";
-		ofLog() << "DRM: setting up HDR window/surface"; 
-		isHDR = ofxRPI4Window::isHDR;//1;
-		isDolby = ofxRPI4Window::isDolby;//0;
-		is_std_Dolby = ofxRPI4Window::is_std_Dolby;//0
-		if (ofxRPI4Window::bit_depth <= 10) {
-			FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-			HDRWindowSetup();
-		} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
-			FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
-			Bit10_16WindowSetup();
+		if (isHDR && !isDolby && !is_std_Dolby) {
+
+			ofLog() << "DRM: setting up HDR window/surface"; 
+			if (ofxRPI4Window::bit_depth <= 10) {
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
+				Bit10_16WindowSetup();
+			} 		
+		} else {
+			ofLog() << "DRM: setting up SDR window/surface";
+			isHDR = 0;
+			isDolby = 0;
+			is_std_Dolby = 0;
+			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+			SDRWindowSetup();
 		}
 	} else if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_DOLBY_VISION) {
 		ofLog() << "DRM: panel is HDR and Dolby Vision capable";
-		ofLog() << "DRM: setting up Dolby Vision window/surface"; 
-		isHDR = ofxRPI4Window::isHDR;//1;
-		isDolby = ofxRPI4Window::isDolby; //1;
-		is_std_Dolby = ofxRPI4Window::is_std_Dolby; //1;
-		if (ofxRPI4Window::bit_depth <= 10) {
-			FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-			HDRWindowSetup();
-		} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
-			FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
-			Bit10_16WindowSetup();
+		if (isHDR && (isDolby || is_std_Dolby)) {
+
+			ofLog() << "DRM: setting up Dolby Vision window/surface"; 
+			if (ofxRPI4Window::bit_depth <= 10) {
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
+				Bit10_16WindowSetup();
+			} 
+		} else {
+			ofLog() << "DRM: setting up SDR window/surface";
+			isHDR = 0;
+			isDolby = 0;
+			is_std_Dolby = 0;
+			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+			SDRWindowSetup();
 		}
 
 	} else {
@@ -2334,7 +2365,7 @@ void ofxRPI4Window::update()
 				Bit10_16WindowSetup();
 			} 
 		}
-		else if (isHDR && isDolby) {
+		else if (isHDR && isDolby && !is_std_Dolby) {
 
 			if (ofxRPI4Window::bit_depth <= 10) {
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
@@ -2344,8 +2375,14 @@ void ofxRPI4Window::update()
 				Bit10_16WindowSetup();
 			}
 
-		}
+		} else if (isHDR && isDolby && is_std_Dolby) {
+
+			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+			SDRWindowSetup();
+
+		} 
 		else {
+			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 			SDRWindowSetup();
 		}
 		//	flip = 0;
