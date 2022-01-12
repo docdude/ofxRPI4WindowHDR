@@ -1496,7 +1496,7 @@ void ofxRPI4Window::EGL_info()
 int ofxRPI4Window::isHDR = 0;
 int ofxRPI4Window::isDolby = 0;
 int ofxRPI4Window::is_std_Dolby = 0;
-int ofxRPI4Window::bit_depth = 8;
+int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
 hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2);
 int ofxRPI4Window::hdr_primaries=2;
@@ -1511,26 +1511,47 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     bEnableSetupScreen = true;
     windowMode = OF_WINDOW;
     glesVersion = settings.glesVersion;
-    InitDRM();
+    InitDRM(); 
  
 	isHDR = ofxRPI4Window::isHDR;//1;
 	isDolby = ofxRPI4Window::isDolby; //1;
 	is_std_Dolby = ofxRPI4Window::is_std_Dolby; //1;
+	switch (ofxRPI4Window::bit_depth) {
+		case 0:
+			ofxRPI4Window::bit_depth = 8;
+		break;
+		case 10:
+			if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
+				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+				avi_info.max_bpc = 10;
+			}
+		break;
+		case 12:
+			if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
+				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+				avi_info.max_bpc = 12;
+			}
+		break;
+	}
 	
     if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_HDR10) {
 		ofLog() << "DRM: panel is HDR capable";
 		if (isHDR && !isDolby && !is_std_Dolby) {
-
-			ofLog() << "DRM: setting up HDR window/surface"; 
-			if (ofxRPI4Window::bit_depth <= 10) {
+			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
-			} 		
+			} else {
+				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
+			}	
 		} else {
-			ofLog() << "DRM: setting up SDR window/surface";
+			ofLog() << "DRM: setting up SDR(8 bit) window/surface";
 			isHDR = 0;
 			isDolby = 0;
 			is_std_Dolby = 0;
@@ -1539,34 +1560,56 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 		}
 	} else if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_DOLBY_VISION) {
 		ofLog() << "DRM: panel is HDR and Dolby Vision capable";
-		if (isHDR && (isDolby || is_std_Dolby)) {
+		if (isDolby && !is_std_Dolby) {
 
-			ofLog() << "DRM: setting up Dolby Vision window/surface"; 
-			if (ofxRPI4Window::bit_depth <= 10) {
+			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+				ofLog() << "DRM: setting up Low Latency DoVi(10 bit) window/surface"; 
+
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+				ofLog() << "DRM: setting up Low Latency DoVi(12 bit) window/surface"; 
+
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
-			} 
+			} else {
+				ofLog() << "DRM: setting up Low Latency DoVi(8 bit) window/surface"; 
+
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
+			}
 		} else if (isHDR && !isDolby && !is_std_Dolby) {
 
-			ofLog() << "DRM: setting up HDR window/surface"; 
-			if (ofxRPI4Window::bit_depth <= 10) {
+
+			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
-			} 
+			} else {
+				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
+			}
+		} else if (isHDR && isDolby && is_std_Dolby) {
+			ofLog() << "DRM: setting up Standard DoVi(8 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
 		} else {
-			ofLog() << "DRM: setting up SDR window/surface";
-			isHDR = 0;
-			isDolby = 0;
-			is_std_Dolby = 0;
-			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-			SDRWindowSetup();
+			if (ofxRPI4Window::bit_depth == 10) {
+				ofLog() << "DRM: setting up SDR(10 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else {
+				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
+			}
 		}
+			
 
 	} else {
 		ofLog() << "DRM: panel is not HDR capable";
@@ -1579,7 +1622,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 	}
 
  		current_bit_depth = ofxRPI4Window::bit_depth;
-       
+        starting_bpc = avi_info.max_bpc;
 
     
 }
@@ -1802,7 +1845,7 @@ void ofxRPI4Window::HDRWindowSetup()
 		avi_infoframe.c_enc = 2;
 		avi_infoframe.c_range = 1;
 		updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
-#endif 
+#endif  
 
 
 EGL_info();	
@@ -1844,7 +1887,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 	  if (!gbmDevice)
 	{
 		ofLogError() << "GBM: - failed to create device: " << gbmDevice; 
-
+ 
 	}
 #if 1
 #if defined(HAS_GBM_MODIFIERS)
@@ -2193,7 +2236,7 @@ int ret;
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
-        EGL_DEPTH_SIZE, 16,
+        EGL_DEPTH_SIZE, 24,
 		EGL_ALPHA_SIZE, 8,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_NONE
@@ -2247,6 +2290,7 @@ int ret;
             auto error = eglGetError();
             ofLogError() << "context ERROR: " << eglErrorString(error);
         }
+#if 1
 		const char *client_extensions = eglQueryString(display, EGL_EXTENSIONS);
 				  
 
@@ -2255,27 +2299,45 @@ int ret;
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
-		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };         
-	
-		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
-		const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-		if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
-		{
-			createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
-			eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-		}
-		if (createPlatformWindowSurfaceEXT) {
-			surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
+
+		if (isHDR && isDolby && is_std_Dolby) {
+			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
+
+			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
+			const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+			if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
+			{
+				createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
+				eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+			}
+			if (createPlatformWindowSurfaceEXT) {
+				surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
+			} else {
+				ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
+				surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
+			}
 		} else {
-			ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
-			surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
+			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
+			
+			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
+			const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+			if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
+			{
+				createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
+				eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+			}
+			if (createPlatformWindowSurfaceEXT) {
+				surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
+			} else {
+				ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
+				surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
+			}			
 		}
+		
+#endif
 
 
-//for (uint32_t i = 0; i < 8; i++)
-//{
-//    eglSurfaceAttrib(display,surface, SurfaceAttribs[i],EGLint(DisplayChromacityList[1].ChromaVals[i] * EGL_METADATA_SCALING_EXT));
-//}
+
 #if 1
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[0].RedX * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[0].RedY * EGL_METADATA_SCALING_EXT));
@@ -2289,13 +2351,14 @@ int ret;
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
 #endif
 
-#if 0	
+	
 
         if (!surface)
         {
             auto error = eglGetError();
             ofLogError() << "surface ERROR: " << eglErrorString(error);
         }
+#if 0
   PFNEGLQUERYDMABUFFORMATSEXTPROC eglQueryDmaBufFormatsEXT =
       (PFNEGLQUERYDMABUFFORMATSEXTPROC)eglGetProcAddress("eglQueryDmaBufFormatsEXT");
        EGLint num_formats = 0;
@@ -2360,45 +2423,87 @@ void ofxRPI4Window::makeCurrent()
 void ofxRPI4Window::update()
 {
    // ofLog() << "update";
-	if (current_bit_depth != ofxRPI4Window::bit_depth)
+  	if (flip) {
+
+	}
+   if (current_bit_depth != ofxRPI4Window::bit_depth)
 		flip = 1;
-	
+
     coreEvents.notifyUpdate();
 	if (flip) {
+		switch (ofxRPI4Window::bit_depth) {
+			case 0:
+				ofxRPI4Window::bit_depth = 8;
+			break;
+			case 8:
+				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
+				avi_info.max_bpc = starting_bpc;
+			break;
+			case 10:
+				if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
+					ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+					avi_info.max_bpc = 10;
+				}
+			break;
+			case 12:
+				if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
+					ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits switching output bpc to 12 bits"; 
+					avi_info.max_bpc = 12;
+				}
+			break;
+		}  
+	
 		if (isHDR && !isDolby && !is_std_Dolby) { 
-			if (ofxRPI4Window::bit_depth <= 10) {
+			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+				ofLog() << "DRM: updating HDR(10 bit) window/surface"; 
+
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} 
-			else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+				ofLog() << "DRM: updating HDR(12 bit) window/surface"; 
+
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
-			} 
+			} else {
+				ofLog() << "DRM: updating SDR(8 bit) window/surface"; 
+
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();				
+			}	
 		}
 		else if (isHDR && isDolby && !is_std_Dolby) {
 
-			if (ofxRPI4Window::bit_depth <= 10) {
+			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+				ofLog() << "DRM: updating Low Latency DoVi(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if (ofxRPI4Window::bit_depth >10 && ofxRPI4Window::bit_depth <= 16) {
+			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+				ofLog() << "DRM: updating Low Latency DoVi(12 bit) window/surface"; 
+
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
-			}
+			} else {
+				ofLog() << "DRM: updating Low Latency Dovi(8 bit) window/surface"; 
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();				
+			}	
 
 		} else if (isHDR && isDolby && is_std_Dolby) {
-
+			ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
 			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 			SDRWindowSetup();
 
 		} 
 		else {
 		 	if (ofxRPI4Window::bit_depth == 10) {
+				ofLog() << "DRM: updating SDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
 			} else {
+				ofLog() << "DRM: updating SDR(8 bit) window/surface"; 
 
-			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-			SDRWindowSetup();
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				SDRWindowSetup();
 			}
 		}
 		//	flip = 0;
@@ -2584,7 +2689,7 @@ void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
     glEnable(GL_DEPTH_TEST);
-	if (!isHDR) 
+	if (isHDR && isDolby && is_std_Dolby) 
 		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
     renderer()->startRender();
 }
@@ -2710,7 +2815,7 @@ uint64_t modifier[4] = { modifiers[1], modifiers[1] };
  		);
 	//	goto could_not_export_buffer;
 	}
-
+ 
 	/* Map the exported buffer, using the PRIME File descriptor */
 	/* That ONLY works if the DRM driver implements gem_prime_mmap.
 	 * This function is not implemented in most of the DRM drivers for 
@@ -2897,7 +3002,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
-			avi_infoframe.c_enc = 2; //ITU-R BT.709 YCbCr 
+			avi_infoframe.c_enc = 1; //ITU-R BT.709 YCbCr 
 			avi_infoframe.c_range = 1; //YCbCr Full Range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
 #endif
@@ -2905,7 +3010,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(SDRplaneId, currentWindowRect, fb_id);
-//			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
+			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 0; //Default

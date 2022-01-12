@@ -80,7 +80,7 @@ using namespace std;
 #define HDMI_HDR10_PLUS_OUI 0x90848b
 #define CTA_EXTENSION_VERSION		0x03
 #define DOLBY_VIDEO_DATA_BLOCK 0x1
-#define HDR10_PLUS_DATA_BLOCK 0x1
+#define HDR10_PLUS_DATA_BLOCK 0x1 
 #define HDR_DYNAMIC_METADATA_BLOCK 0x7
 #define HDR_STATIC_METADATA_BLOCK       0x06
 #define USE_EXTENDED_TAG		0x07
@@ -159,12 +159,12 @@ struct drm_fb {
 };
 
 struct avi_infoframe {
-	uint32_t colorimetry;
-	uint32_t rgb_quant_range;
-    uint32_t max_bpc; 
-	uint32_t output_format;
-	uint32_t c_enc; 
-	uint32_t c_range;
+	int colorimetry;
+	int rgb_quant_range;
+    int max_bpc; 
+	int output_format;
+	int c_enc; 
+	int c_range;
 };
 
 
@@ -294,6 +294,7 @@ public:
 	static int mode_idx;
 	
 	int current_bit_depth;
+	int starting_bpc;
 	
 	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
