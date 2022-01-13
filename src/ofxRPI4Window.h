@@ -289,12 +289,15 @@ public:
 	static int isDolby;
 	static int is_std_Dolby;
 	static hdmi_eotf eotf;
-	static int hdr_primaries;
+	static int hdr_primaries; 
 	static int bit_depth;
 	static int mode_idx;
 	
 	int current_bit_depth;
+	int initial_bit_depth;
 	int starting_bpc;
+	static int colorspace_on;
+	int colorspace_status;
 	
 	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);

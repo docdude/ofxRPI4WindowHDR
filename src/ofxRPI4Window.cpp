@@ -1304,7 +1304,28 @@ bool ofxRPI4Window::InitDRM()
 		return -1;
 	}
 #endif	
-    mode = connector->modes[ofxRPI4Window::mode_idx];
+// Start BiasiLinux patch for compatibility with old version
+mode = connector->modes[0];
+for (int i=0;i<connector->count_modes;i++) {
+drmModeModeInfo *current_mode = &connector->modes[i];
+if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
+mode = connector->modes[i];
+break;
+}
+}
+if (connector->encoder_id) {
+drmModeEncoder* encoder_tmp = NULL;
+encoder_tmp = drmModeGetEncoder(device, connector->encoder_id);
+if (encoder_tmp != NULL) {
+crtc = drmModeGetCrtc(device, encoder_tmp->crtc_id);
+mode = crtc->mode;
+drmModeFreeEncoder(encoder_tmp);
+}
+}
+if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
+//End BiasiLinux patch for compatiblity with old version
+
+//    mode = connector->modes[ofxRPI4Window::mode_idx];
     
     currentWindowRect = ofRectangle(0, 0, mode.hdisplay, mode.vdisplay);
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
@@ -1502,6 +1523,7 @@ hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2);
 int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
 drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
+int ofxRPI4Window::colorspace_on = 0;
 
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
@@ -1509,6 +1531,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 //	 ofSetLogLevel(OF_LOG_VERBOSE);
     check_extensions();
     bEnableSetupScreen = true;
+//	colorspace_on = true;
     windowMode = OF_WINDOW;
     glesVersion = settings.glesVersion;
     InitDRM(); 
@@ -1516,9 +1539,11 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 	isHDR = ofxRPI4Window::isHDR;//1;
 	isDolby = ofxRPI4Window::isDolby; //1;
 	is_std_Dolby = ofxRPI4Window::is_std_Dolby; //1;
+	initial_bit_depth = ofxRPI4Window::bit_depth;
 	switch (ofxRPI4Window::bit_depth) {
 		case 0:
 			ofxRPI4Window::bit_depth = 8;
+			ofxRPI4Window::colorspace_on = 0;
 		break;
 		case 10:
 			if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
@@ -1623,7 +1648,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 
  		current_bit_depth = ofxRPI4Window::bit_depth;
         starting_bpc = avi_info.max_bpc;
-
+		colorspace_status = ofxRPI4Window::colorspace_on;
     
 }
 
@@ -2236,7 +2261,7 @@ int ret;
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
-        EGL_DEPTH_SIZE, 24,
+        EGL_DEPTH_SIZE, 16,
 		EGL_ALPHA_SIZE, 8,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_NONE
@@ -2300,7 +2325,7 @@ int ret;
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 
-		if (isHDR && isDolby && is_std_Dolby) {
+		if ((isHDR && isDolby && is_std_Dolby) || !ofxRPI4Window::colorspace_on ) {
 			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
 
 			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
@@ -2423,19 +2448,21 @@ void ofxRPI4Window::makeCurrent()
 void ofxRPI4Window::update()
 {
    // ofLog() << "update";
-  	if (flip) {
 
-	}
    if (current_bit_depth != ofxRPI4Window::bit_depth)
 		flip = 1;
-
+	if (colorspace_status != ofxRPI4Window::colorspace_on) 
+		flip = 1;
     coreEvents.notifyUpdate();
 	if (flip) {
+		if (!ofxRPI4Window::colorspace_on && !initial_bit_depth) ofxRPI4Window::colorspace_on = false;
 		switch (ofxRPI4Window::bit_depth) {
 			case 0:
 				ofxRPI4Window::bit_depth = 8;
+				ofxRPI4Window::colorspace_on = false;
 			break;
 			case 8:
+				if (ofxRPI4Window::colorspace_on)
 				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
 				avi_info.max_bpc = starting_bpc;
 			break;
@@ -2444,6 +2471,7 @@ void ofxRPI4Window::update()
 					ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
 					avi_info.max_bpc = 10;
 				}
+								if (!ofxRPI4Window::colorspace_on) ofxRPI4Window::bit_depth=8;
 			break;
 			case 12:
 				if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
@@ -2508,6 +2536,7 @@ void ofxRPI4Window::update()
 		}
 		//	flip = 0;
 		current_bit_depth = ofxRPI4Window::bit_depth;
+		colorspace_status = ofxRPI4Window::colorspace_on;
 	}
 }
 
@@ -2689,8 +2718,9 @@ void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
     glEnable(GL_DEPTH_TEST);
-	if (isHDR && isDolby && is_std_Dolby) 
+	if (isHDR && isDolby && is_std_Dolby && !ofxRPI4Window::colorspace_on) {
 		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+	}
     renderer()->startRender();
 }
 
@@ -3002,7 +3032,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
-			avi_infoframe.c_enc = 1; //ITU-R BT.709 YCbCr 
+			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr 
 			avi_infoframe.c_range = 1; //YCbCr Full Range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
 #endif
