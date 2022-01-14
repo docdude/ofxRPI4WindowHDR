@@ -1652,6 +1652,23 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     
 }
 
+void ofxRPI4Window::EGL_create_surface(EGLint attribs[], EGLConfig config)
+{
+	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
+	const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+	if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
+	{
+		createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
+		eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+	}
+	if (createPlatformWindowSurfaceEXT) {
+		surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
+	} else {
+		ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
+		surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
+	}
+}
+
 void ofxRPI4Window::HDRWindowSetup()
 {
 	if (!DestroyWindow()) 
@@ -1816,8 +1833,8 @@ void ofxRPI4Window::HDRWindowSetup()
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };         
-
-	
+		EGL_create_surface(attribs, config);
+#if 0	
 		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
 		const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 		if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm"))) {
@@ -1831,7 +1848,7 @@ void ofxRPI4Window::HDRWindowSetup()
 			surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
 		}
 
- 
+#endif
 
 //for (uint32_t i = 0; i < 8; i++)
 //{
@@ -2065,8 +2082,8 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };         
-
-	
+		EGL_create_surface(attribs, config);
+#if 0
 		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
 		const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 		if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm"))) {
@@ -2079,13 +2096,8 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 			ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
 			surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
 		}
+#endif
 
-
-
-//for (uint32_t i = 0; i < 8; i++)
-//{
-//    eglSurfaceAttrib(display,surface, SurfaceAttribs[i],EGLint(DisplayChromacityList[1].ChromaVals[i] * EGL_METADATA_SCALING_EXT));
-//}
 #if 1
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[2].RedX * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[2].RedY * EGL_METADATA_SCALING_EXT));
@@ -2325,38 +2337,24 @@ int ret;
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 
-		if ((isHDR && isDolby && is_std_Dolby) && !ofxRPI4Window::colorspace_on ) {
-			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
+		if (isHDR && isDolby && is_std_Dolby) {
+			if (ofxRPI4Window::colorspace_on) { 
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
+				EGL_create_surface(attribs, config);				
+			} else {
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
+				EGL_create_surface(attribs, config);
+			}
 
-			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
-			const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-			if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
-			{
-				createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
-				eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-			}
-			if (createPlatformWindowSurfaceEXT) {
-				surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
-			} else {
-				ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
-				surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
-			}
 		} else {
-			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
-			
-			PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
-			const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-			if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm")))
-			{
-				createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
-				eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-			}
-			if (createPlatformWindowSurfaceEXT) {
-				surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
+			if (ofxRPI4Window::colorspace_on) { 
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
+				EGL_create_surface(attribs, config);				
 			} else {
-				ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
-				surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
-			}			
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE };  
+				EGL_create_surface(attribs, config);
+			}
+			
 		}
 		
 #endif

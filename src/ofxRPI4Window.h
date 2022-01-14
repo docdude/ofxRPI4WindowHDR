@@ -305,7 +305,7 @@ public:
 	void FindModifiers(uint32_t format, uint32_t plane_id);
 	int find_device();
 	bool InitDRM(); 
-	
+	void EGL_create_surface(EGLint attribs[], EGLConfig config);
 	
 	int CreateFB_ID();
 	/* Parse EDID for HDR and Dolby Vision support report if display supports */
