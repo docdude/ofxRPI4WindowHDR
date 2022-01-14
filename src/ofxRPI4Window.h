@@ -32,7 +32,7 @@
 #define EGL_GL_COLORSPACE_BT2020_PQ_EXT   0x3340
 #endif /* EGL_EXT_gl_colorspace_bt2020_pq */
 
-#ifndef DRM_FORMAT_NV15
+#ifndef DRM_FORMAT_NV15 
 #define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5')
 #endif
 
@@ -51,7 +51,7 @@
 #endif
 
 #ifndef DRM_FORMAT_NV20
-#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0')
+#define DRM_FORMAT_NV20 fourcc_code('N', 'V', '2', '0') 
 #endif
 
 // V4L2_PIX_FMT_NV12_10_COL128 and V4L2_PIX_FMT_NV12_COL128 should be defined
@@ -67,6 +67,17 @@
 #ifndef HAS_GBM_MODIFIERS
 #define HAS_GBM_MODIFIERS
 #endif
+
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT 0x3341
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT 0x3342
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_GX_EXT 0x3343
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_GY_EXT 0x3344
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_BX_EXT 0x3345
+#define EGL_SMPTE2086_DISPLAY_PRIMARY_BY_EXT 0x3346
+#define EGL_SMPTE2086_WHITE_POINT_X_EXT   0x3347
+#define EGL_SMPTE2086_WHITE_POINT_Y_EXT   0x3348
+#define EGL_SMPTE2086_MAX_LUMINANCE_EXT   0x3349
+#define EGL_SMPTE2086_MIN_LUMINANCE_EXT   0x334A
 
 typedef EGLDisplay (EGLAPIENTRYP PFNEGLGETPLATFORMDISPLAYEXTPROC) (EGLenum platform, void *native_display, const EGLint *attrib_list);
 //EGLAPI EGLDisplay EGLAPIENTRY eglGetPlatformDisplayEXT (EGLenum platform, void *native_display, const EGLint *attrib_list);
