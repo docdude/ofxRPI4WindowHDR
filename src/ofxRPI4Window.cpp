@@ -2461,7 +2461,7 @@ void ofxRPI4Window::update()
 			break;
 			case 8:
 				if (ofxRPI4Window::colorspace_on)
-				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
+				ofLog() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
 				avi_info.max_bpc = starting_bpc;
 			break;
 			case 10:
@@ -3026,7 +3026,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
 			updateDoVi_Infoframe(ofxRPI4Window::eotf, 1 , 1); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorimetry = 0; //RGB
+			avi_infoframe.colorimetry = 0; //RGB ?? get color with YCrCb422
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
