@@ -566,44 +566,6 @@ int match_config_to_visual(EGLDisplay egl_display,
     return -1;
 }
 
-void printConfigInfo(int n, EGLDisplay display, EGLConfig *config) {
- EGLint size;
-EGLint visual_id;
-    printf("Configuration %d is\n", n);
-
-    eglGetConfigAttrib(display,
-		       *config, EGL_RED_SIZE, &size);
-    printf("  Red size is %d\n", size);
-    eglGetConfigAttrib(display,
-		       *config, EGL_GREEN_SIZE, &size);
-    printf("  Green size is %d\n", size);
-    eglGetConfigAttrib(display,
-		       *config, EGL_BLUE_SIZE, &size);
-    printf("  Blue size is %d\n", size);
-	eglGetConfigAttrib(display,
-		       *config, EGL_ALPHA_SIZE, &size);
-    printf("  Alpha size is %d\n", size);
-    eglGetConfigAttrib(display,
-		       *config, EGL_BUFFER_SIZE, &size);
-    printf("  Buffer size is %d\n", size);
-	    eglGetConfigAttrib(display,
-		       *config, EGL_NATIVE_VISUAL_ID, &visual_id);
-    printf("  VisualID is %s (0x%08x)\n", format_str(visual_id),visual_id); 	
-
-   eglGetConfigAttrib(display,
-		       *config,  EGL_BIND_TO_TEXTURE_RGB , &size);
-   if (size == EGL_TRUE)
-       printf("  Can be bound to RGB texture\n");
-   else
-       printf("  Can't be bound to RGB texture\n");
-
-   eglGetConfigAttrib(display,
-		       *config,  EGL_BIND_TO_TEXTURE_RGBA , &size);
-   if (size == EGL_TRUE)
-       printf("  Can be bound to RGBA texture\n");
-   else
-       printf("  Can't be bound to RGBA texture\n");
-}
 
 /**
  * Print table of all available configurations.
@@ -754,7 +716,7 @@ gbm_get_display (gbm_device* gbmDevice)
 
   return 0;//eglGetDisplay ((EGLNativeDisplayType) gbmDevice);
 }
-#if 1
+
 void
 ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */)
@@ -971,8 +933,6 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 	drmModeFreeObjectProperties(proplist);
 	return found;
 }
-#endif
-
 
 
 static void
@@ -1037,8 +997,9 @@ print_device_info(drmDevicePtr device, int i, bool print_revision)
 
 }
 
-	const char* renderDevicePath{nullptr};
-	int renderDevice;
+const char* renderDevicePath{nullptr};
+int renderDevice;
+
 int
 ofxRPI4Window::find_device(void)
 {
@@ -1121,24 +1082,24 @@ bool ofxRPI4Window::cta_is_hdr_static_metadata_block(const char *edid_ext)
 	return false;
 }
 
-bool ofxRPI4Window::cta_is_dolby_video_block(const char *edid_ext)
+bool ofxRPI4Window::cta_is_dovi_video_block(const char *edid_ext)
 {
 	unsigned int oui;
 	/*
 	 * Byte 1: 0x07 indicates Extended Tag
-	 * Byte 2: 0x01 indicates HDMI Dolby Vision VSDB
-	 * Bytes 3-5: HDMI Dolby Laboratories OUI
+	 * Byte 2: 0x01 indicates HDMI DoVi VSDB
+	 * Bytes 3-5: HDMI DoVi Laboratories OUI
 	 */
 	oui = edid_ext[4] << 16 | edid_ext[3] << 8 | edid_ext[2];
 	if ((((edid_ext[0] & 0xe0) >> 5 == USE_EXTENDED_TAG) &&
-	      (edid_ext[1] == DOLBY_VIDEO_DATA_BLOCK)) &&
-	      (oui == HDMI_DOLBY_OUI))
+	      (edid_ext[1] == DOVI_VIDEO_DATA_BLOCK)) &&
+	      (oui == HDMI_DOVI_OUI))
 			return true;
 
 	return false;
 }
 
-/* Returns if panel supports HDR of HDR and Dolby Vision support */
+/* Returns if panel supports HDR of HDR and DoVi support */
 int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 {
 	bool ok;
@@ -1186,7 +1147,7 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 				if (cta_is_hdr_static_metadata_block(cea_data + j))
 					supportsHDR = true;
 					
-				if (cta_is_dolby_video_block(cea_data + j))
+				if (cta_is_dovi_video_block(cea_data + j))
 					supportsDoVi = true;
 
 			}
@@ -1195,7 +1156,7 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 	if (supportsHDR && !supportsDoVi)
 		ret = HDR_TYPE_HDR10;
 	else if (supportsDoVi && supportsHDR)
-		ret = HDR_TYPE_DOLBY_VISION;
+		ret = HDR_TYPE_DOVI;
 	else 
 		ret = 0; 
 	
@@ -1304,29 +1265,28 @@ bool ofxRPI4Window::InitDRM()
 		return -1;
 	}
 #endif	
-// Start BiasiLinux patch for compatibility with old version
-mode = connector->modes[0];
-for (int i=0;i<connector->count_modes;i++) {
-drmModeModeInfo *current_mode = &connector->modes[i];
-if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
-mode = connector->modes[i];
-break;
-}
-}
-if (connector->encoder_id) {
-drmModeEncoder* encoder_tmp = NULL;
-encoder_tmp = drmModeGetEncoder(device, connector->encoder_id);
-if (encoder_tmp != NULL) {
-crtc = drmModeGetCrtc(device, encoder_tmp->crtc_id);
-mode = crtc->mode;
-drmModeFreeEncoder(encoder_tmp);
-}
-}
-if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
-//End BiasiLinux patch for compatiblity with old version
+	// Start BiasiLinux patch for compatibility with old version
+	mode = connector->modes[0];
+	for (int i=0;i<connector->count_modes;i++) {
+		drmModeModeInfo *current_mode = &connector->modes[i];
+		if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
+			mode = connector->modes[i];
+			break;
+		}
+	}
+	if (connector->encoder_id) {
+		drmModeEncoder* encoder_tmp = NULL;
+		encoder_tmp = drmModeGetEncoder(device, connector->encoder_id);
+		if (encoder_tmp != NULL) {
+			crtc = drmModeGetCrtc(device, encoder_tmp->crtc_id);
+			mode = crtc->mode;
+			drmModeFreeEncoder(encoder_tmp);
+		}
+	}
+	if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
+	//End BiasiLinux patch for compatiblity with old version
 
-//    mode = connector->modes[ofxRPI4Window::mode_idx];
-    
+   
     currentWindowRect = ofRectangle(0, 0, mode.hdisplay, mode.vdisplay);
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
     
@@ -1515,8 +1475,8 @@ void ofxRPI4Window::EGL_info()
 }
 
 int ofxRPI4Window::isHDR = 0;
-int ofxRPI4Window::isDolby = 0;
-int ofxRPI4Window::is_std_Dolby = 0;
+int ofxRPI4Window::isDoVi = 0;
+int ofxRPI4Window::is_std_DoVi = 0;
 int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
 hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2);
@@ -1536,24 +1496,24 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     glesVersion = settings.glesVersion;
     InitDRM(); 
  
-	isHDR = ofxRPI4Window::isHDR;//1;
-	isDolby = ofxRPI4Window::isDolby; //1;
-	is_std_Dolby = ofxRPI4Window::is_std_Dolby; //1;
-	initial_bit_depth = ofxRPI4Window::bit_depth;
-	switch (ofxRPI4Window::bit_depth) {
+//	isHDR = ofxRPI4Window::isHDR;//1;
+//	isDoVi = ofxRPI4Window::isDoVi; //1;
+//	is_std_DoVi = ofxRPI4Window::is_std_DoVi; //1;
+	initial_bit_depth = bit_depth;
+	switch (bit_depth) {
 		case 0:
-			ofxRPI4Window::bit_depth = 8;
-			ofxRPI4Window::colorspace_on = 0;
+			bit_depth = 8;
+			colorspace_on = 0;
 		break;
 		case 10:
-			if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
-				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+			if (bit_depth != avi_info.max_bpc) {
+				ofLogError() << "DRM: input bit_depth of " << bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
 				avi_info.max_bpc = 10;
 			}
 		break;
 		case 12:
-			if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
-				ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+			if (bit_depth != avi_info.max_bpc) {
+				ofLogError() << "DRM: input bit_depth of " << bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
 				avi_info.max_bpc = 12;
 			}
 		break;
@@ -1561,12 +1521,12 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 	
     if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_HDR10) {
 		ofLog() << "DRM: panel is HDR capable";
-		if (isHDR && !isDolby && !is_std_Dolby) {
-			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+		if (isHDR && !isDoVi && !is_std_DoVi) {
+			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -1578,21 +1538,21 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 		} else {
 			ofLog() << "DRM: setting up SDR(8 bit) window/surface";
 			isHDR = 0;
-			isDolby = 0;
-			is_std_Dolby = 0;
+			isDoVi = 0;
+			is_std_DoVi = 0;
 			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 			SDRWindowSetup();
 		}
-	} else if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_DOLBY_VISION) {
-		ofLog() << "DRM: panel is HDR and Dolby Vision capable";
-		if (isDolby && !is_std_Dolby) {
+	} else if (is_panel_hdr_dovi(device, connectorId) == HDR_TYPE_DOVI) {
+		ofLog() << "DRM: panel is HDR and DoVi capable";
+		if (isHDR && isDoVi && !is_std_DoVi) {
 
-			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: setting up Low Latency DoVi(10 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up Low Latency DoVi(12 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
@@ -1603,14 +1563,14 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 			}
-		} else if (isHDR && !isDolby && !is_std_Dolby) {
+		} else if (isHDR && !isDoVi && !is_std_DoVi) {
 
 
-			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -1619,12 +1579,12 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 			}
-		} else if (isHDR && isDolby && is_std_Dolby) {
+		} else if (isHDR && isDoVi && is_std_DoVi) {
 			ofLog() << "DRM: setting up Standard DoVi(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 		} else {
-			if (ofxRPI4Window::bit_depth == 10) {
+			if (bit_depth == 10) {
 				ofLog() << "DRM: setting up SDR(10 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
@@ -1640,15 +1600,15 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 		ofLog() << "DRM: panel is not HDR capable";
 		ofLog() << "DRM: setting up SDR window/surface";
 		isHDR = 0;
-		isDolby = 0;
-		is_std_Dolby = 0;
+		isDoVi = 0;
+		is_std_DoVi = 0;
 		FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 		SDRWindowSetup();
 	}
 
- 		current_bit_depth = ofxRPI4Window::bit_depth;
+ 		current_bit_depth = bit_depth;
         starting_bpc = avi_info.max_bpc;
-		colorspace_status = ofxRPI4Window::colorspace_on;
+		colorspace_status = colorspace_on;
     
 }
 
@@ -1702,7 +1662,7 @@ void ofxRPI4Window::HDRWindowSetup()
 
 	} else {
 
-		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : NULL);
+		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : 0);
 	}
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ABGR2101010, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
@@ -1768,12 +1728,6 @@ void ofxRPI4Window::HDRWindowSetup()
 	EGLint visualId = GBM_FORMAT_ABGR2101010;
 
 
-  //  eglGetConfigs(display, configs, count, &count);
-    
-//    int i;
-//    for (i = 0; i < count; i++) {
-//	printConfigInfo(i, display, &configs[i]);
- //   }
     PrintConfigs(display);
 	 
     EGLConfig config = NULL;
@@ -1878,23 +1832,13 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-#if 0
-		updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 1);
-		struct avi_infoframe avi_infoframe;
-		avi_infoframe.colorimetry = 11;
-		avi_infoframe.output_format = 1;
-		avi_infoframe.max_bpc = 10;
-		avi_infoframe.c_enc = 2;
-		avi_infoframe.c_range = 1;
-		updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
-#endif  
 
 
 EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
 			
 	} else {
-        ofLog() << "RIP";
+        ofLogError() << "RIP";
     }
 	
 	
@@ -1951,7 +1895,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 
 	} else {
 
-		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? modifiers[0] : NULL);
+		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? modifiers[0] : 0);
 	}
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ABGR16161616F, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
@@ -2184,7 +2128,7 @@ EGL_info();
 		ofLog() << "GBM: - initialized GBM";	
 			
 	} else {
-        ofLog() << "RIP";
+        ofLogError() << "RIP";
     }
 	
 	
@@ -2229,7 +2173,7 @@ int ret;
 
 	} else {
 
-		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : NULL);
+		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : 0);
 	}
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ARGB8888 , GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
@@ -2337,8 +2281,8 @@ int ret;
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
 
-		if (isHDR && isDolby && is_std_Dolby) {
-			if (ofxRPI4Window::colorspace_on) { 
+		if (isHDR && isDoVi && is_std_DoVi) {
+			if (colorspace_on) { 
 				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
 				EGL_create_surface(attribs, config);				
 			} else {
@@ -2347,7 +2291,7 @@ int ret;
 			}
 
 		} else {
-			if (ofxRPI4Window::colorspace_on) { 
+			if (colorspace_on) { 
 				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
 				EGL_create_surface(attribs, config);				
 			} else {
@@ -2360,7 +2304,20 @@ int ret;
 #endif
 
 
-
+		if (isDoVi || is_std_DoVi) {
+#if 1
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[2].RedX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[2].RedY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[2].GreenX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[3],EGLint(DisplayChromacityList[2].GreenY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[4],EGLint(DisplayChromacityList[2].BlueX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[5],EGLint(DisplayChromacityList[2].BlueY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[6],EGLint(DisplayChromacityList[2].WhiteX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[2].WhiteY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
+		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
+#endif
+		} else {
 #if 1
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[0].RedX * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[0].RedY * EGL_METADATA_SCALING_EXT));
@@ -2372,9 +2329,8 @@ int ret;
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[0].WhiteY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
-#endif
-
-	
+#endif			
+		}
 
         if (!surface)
         {
@@ -2403,34 +2359,16 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-#if 0
-		updateHDR_Infoframe(HDMI_EOTF_TRADITIONAL_GAMMA_SDR, 0);
-		struct avi_infoframe avi_infoframe;
-		avi_infoframe.colorimetry = 0;
-		avi_infoframe.output_format = 2;
-		avi_infoframe.max_bpc = 8;
-		avi_infoframe.c_enc = 1;
-		avi_infoframe.c_range = 0;
-		updateAVI_Infoframe(SDRplaneId, avi_infoframe);	
-#endif
+
    EGL_info();  
 		ofLog() << "GBM: - initialized GBM";
 
         }else
         {
-            ofLog() << "RIP";
+            ofLogError() << "RIP";
         }
         
-        
-        
-        
- //   }
-    
-    
-    
-    
-    
-    
+     
     
 }
 
@@ -2447,45 +2385,45 @@ void ofxRPI4Window::update()
 {
    // ofLog() << "update";
 
-   if (current_bit_depth != ofxRPI4Window::bit_depth)
+   if (current_bit_depth != bit_depth)
 		flip = 1;
-	if (colorspace_status != ofxRPI4Window::colorspace_on) 
+	if (colorspace_status != colorspace_on) 
 		flip = 1;
     coreEvents.notifyUpdate();
 	if (flip) {
-		if (!ofxRPI4Window::colorspace_on && !initial_bit_depth) ofxRPI4Window::colorspace_on = false;
-		switch (ofxRPI4Window::bit_depth) {
+		if (!colorspace_on && !initial_bit_depth) colorspace_on = 0;
+		switch (bit_depth) {
 			case 0:
-				ofxRPI4Window::bit_depth = 8;
-				ofxRPI4Window::colorspace_on = false;
+				bit_depth = 8;
+				colorspace_on = 0;
 			break;
 			case 8:
-				if (ofxRPI4Window::colorspace_on)
-				ofLog() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
+				if (colorspace_on)
+				ofLog() << "DRM: input bit_depth of " << bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
 				avi_info.max_bpc = starting_bpc;
 			break;
 			case 10:
-				if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
-					ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
+				if (bit_depth != avi_info.max_bpc) {
+					ofLogError() << "DRM: input bit_depth of " << bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
 					avi_info.max_bpc = 10;
 				}
-								if (!ofxRPI4Window::colorspace_on) ofxRPI4Window::bit_depth=8;
+								if (!colorspace_on) bit_depth=8;
 			break;
 			case 12:
-				if (ofxRPI4Window::bit_depth != avi_info.max_bpc) {
-					ofLogError() << "DRM: input bit_depth of " << ofxRPI4Window::bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits switching output bpc to 12 bits"; 
+				if (bit_depth != avi_info.max_bpc) {
+					ofLogError() << "DRM: input bit_depth of " << bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits switching output bpc to 12 bits"; 
 					avi_info.max_bpc = 12;
 				}
 			break;
 		}  
 	
-		if (isHDR && !isDolby && !is_std_Dolby) { 
-			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+		if (isHDR && !isDoVi && !is_std_DoVi) { 
+			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: updating HDR(10 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating HDR(12 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
@@ -2497,13 +2435,13 @@ void ofxRPI4Window::update()
 				SDRWindowSetup();				
 			}	
 		}
-		else if (isHDR && isDolby && !is_std_Dolby) {
+		else if (isHDR && isDoVi && !is_std_DoVi) {
 
-			if ((ofxRPI4Window::bit_depth >= 8) && (ofxRPI4Window::bit_depth <= 10) && (avi_info.max_bpc == 10)) {
+			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: updating Low Latency DoVi(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((ofxRPI4Window::bit_depth >=8) && (ofxRPI4Window::bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating Low Latency DoVi(12 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
@@ -2514,14 +2452,15 @@ void ofxRPI4Window::update()
 				SDRWindowSetup();				
 			}	
 
-		} else if (isHDR && isDolby && is_std_Dolby) {
+		} else if (isHDR && isDoVi && is_std_DoVi) {
+
 			ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
 			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 			SDRWindowSetup();
 
 		} 
 		else {
-		 	if (ofxRPI4Window::bit_depth == 10) {
+		 	if (bit_depth == 10) {
 				ofLog() << "DRM: updating SDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
@@ -2533,8 +2472,8 @@ void ofxRPI4Window::update()
 			}
 		}
 		//	flip = 0;
-		current_bit_depth = ofxRPI4Window::bit_depth;
-		colorspace_status = ofxRPI4Window::colorspace_on;
+		current_bit_depth = bit_depth;
+		colorspace_status = colorspace_on;
 	}
 }
 
@@ -2695,8 +2634,8 @@ void ofxRPI4Window::swapBuffers()
 
     		
   //  drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
-     FlipPage(flip, isHDR, isDolby, fb->fb_id);
-     		flip = false;  //change to flags 
+     FlipPage(flip, fb->fb_id);
+     flip = false;  //change to flags 
 					/* Allow a modeset change for the first commit only. */
 		//flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET);
 
@@ -2716,7 +2655,7 @@ void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
     glEnable(GL_DEPTH_TEST);
-	if (isHDR && isDolby && is_std_Dolby && !ofxRPI4Window::colorspace_on) {
+	if (isHDR && isDoVi && is_std_DoVi && !colorspace_on) {
 		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
 	}
     renderer()->startRender();
@@ -2929,11 +2868,11 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
 				prop_id /* in */, blob_id /* in */, prop /* in */);
 	} else {
-printf ("***********************************\n");
+
 		if (blob_id) {
 		//	drmModeDestroyPropertyBlob(device, blob_id);
 			blob_id = 0;
-			printf ("***********************************\n");
+
 		}
 
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
@@ -2965,7 +2904,7 @@ last_req = 1;
 last_req = 0;
 }
 
-int ofxRPI4Window::SetPlaneId(int isHDR)
+int ofxRPI4Window::SetPlaneId()
 {
 	if (isHDR)
 		return HDRplaneId;
@@ -2973,7 +2912,7 @@ int ofxRPI4Window::SetPlaneId(int isHDR)
 		return SDRplaneId; 
 }
  
-void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
+void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 {
 	/***************************************************************/
 	/* YQ1 YQ0 YCC Quantization Range 							   */
@@ -2985,13 +2924,13 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 	/***************************************************************/
 
 	if (flip) { 
-		if (isHDR && !isDolby && !is_std_Dolby)
+		if (isHDR && !isDoVi && !is_std_DoVi)
 		{  
 			// disable plane when working layer no longer is active
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
-			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0 , 0); // Disable DOVI infoframe
+			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe
  
 			updateHDR_Infoframe(ofxRPI4Window::eotf, ofxRPI4Window::hdr_primaries);// Display Gamut P3D65
 			struct avi_infoframe avi_infoframe;
@@ -3003,12 +2942,12 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			avi_infoframe.c_range = 1; //YCbCr Full range 
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	  
 #if 1 
-		} else if (isHDR && isDolby && !is_std_Dolby) {
+		} else if (isHDR && isDoVi && !is_std_DoVi) {
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
-			updateDoVi_Infoframe(ofxRPI4Window::eotf, 1 , 2); // Enable LLDV DOVI infoframe
+			updateDoVi_Infoframe(1, 2); // Enable LLDV DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 9; //BT2020_YCC or BT2020_RGB??
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range; //Full range [0-255]
@@ -3019,14 +2958,14 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
 #endif
 #if 1  
-		} else if (isHDR && isDolby && is_std_Dolby) {
+		} else if (isHDR && isDoVi && is_std_DoVi) {
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
-			updateDoVi_Infoframe(ofxRPI4Window::eotf, 1 , 1); // Enable Standard DOVI infoframe
+			updateDoVi_Infoframe(1, 1); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorimetry = 0; //RGB ?? get color with YCrCb422
+			avi_infoframe.colorimetry = 0; //Default
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
@@ -3038,7 +2977,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 			DisablePlane(SDRplaneId);
 			DisablePlane(HDRplaneId);
 			SetActivePlane(SDRplaneId, currentWindowRect, fb_id);
-			updateDoVi_Infoframe(ofxRPI4Window::eotf, 0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
+			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 0; //Default
@@ -3053,7 +2992,7 @@ void ofxRPI4Window::FlipPage(bool flip, int isHDR, int isDolby,  uint32_t fb_id)
 
 	}
 
-	if (drmModeSetPlane(device, SetPlaneId(isHDR), crtc->crtc_id,
+	if (drmModeSetPlane(device, SetPlaneId(), crtc->crtc_id,
 		    fb_id, 0, crtc->x, crtc->y,
 		    crtc->width, crtc->height, 0, 0,
 		    ((int)currentWindowRect.width << 16), ((int)currentWindowRect.height << 16)))
@@ -3243,44 +3182,18 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 
 first_req = 1;
 last_req = 1;
-//	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
-//			prop_id /* in */, blob_id /* in */, prop /* in */);
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
 				prop_id /* in */, blob_id /* in */, prop /* in */);
 	}
-#if 0
-	if (ret != 0) {
-		ofLogError() << "Unable to set HDR_OUTPUT_METADATA";
-	//	return false;
-	} else { 
-		hdr_output_metadata_info(device,blob_id);
-//		dovi_output_metadata_info(device,blob_id);
-
-	//	return true;
-	}
-#endif
-//	drmModeFreePropertyBlob(blob);	 	
-
 last_req = 0;
 }
  
-void ofxRPI4Window::updateDoVi_Infoframe(hdmi_eotf eotf, int enable, int dv_interface) //
+void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) //
 {
 	bool ok;
 	int ret;
 	drmModePropertyBlobRes *blob;
 
-#if 0
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
-	if (!ok || !blob_id)
-		ofLogError() << "Unable to find or HDR_OUTPUT_METADATA not set";
-
-	if (blob_id)
-      drmModeDestroyPropertyBlob(device, blob_id);
-    blob_id = 0;
-#endif
 	
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
@@ -3310,15 +3223,11 @@ first_req = 1;
 last_req = 1;
 	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
 			prop_id /* in */, blob_id /* in */, prop /* in */);
-//	drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-//			prop_id /* in */, blob_id /* in */, prop /* in */);
-
-//	drmModeFreePropertyBlob(blob);	 	
-
 	}  
 last_req = 0;
 }
-bool ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
+
+void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
 {
 	bool ok;
 		ok = drm_mode_get_property(device, connectorId,
@@ -3426,7 +3335,6 @@ last_req = 1;
 	
 last_req = 0;
 
-	return true;
 }
 
 void ofxRPI4Window::draw()

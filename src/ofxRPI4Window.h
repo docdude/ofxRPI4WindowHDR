@@ -87,10 +87,10 @@ using namespace std;
 /* HDR EDID parsing. */
 #define HDMI_IEEE_OUI 0x000c03
 #define HDMI_FORUM_IEEE_OUI 0xc45dd8
-#define HDMI_DOLBY_OUI 0x00d046
+#define HDMI_DOVI_OUI 0x00d046
 #define HDMI_HDR10_PLUS_OUI 0x90848b
 #define CTA_EXTENSION_VERSION		0x03
-#define DOLBY_VIDEO_DATA_BLOCK 0x1
+#define DOVI_VIDEO_DATA_BLOCK 0x1
 #define HDR10_PLUS_DATA_BLOCK 0x1 
 #define HDR_DYNAMIC_METADATA_BLOCK 0x7
 #define HDR_STATIC_METADATA_BLOCK       0x06
@@ -98,7 +98,7 @@ using namespace std;
 
 
 #define HDR_TYPE_HDR10 1
-#define HDR_TYPE_DOLBY_VISION 2
+#define HDR_TYPE_DOVI 2
 #define HDR_TYPE_HDR10_PLUS 3
 #define HDR_TYPE_HLG 4
 
@@ -127,16 +127,16 @@ struct drm_hdr_output_metadata {
     struct drm_hdr_metadata_infoframe hdmi_metadata_type1;
   };
 };
-
+#endif  // HAVE_DRM_HDR_OUTPUT_METADATA
 
 /**
- * struct dovi_output_metadata - Dolby Vision Source Metadata
+ * struct dovi_output_metadata - DoViSource Metadata
  *
- * Dolby Vision source metadata to be passed from userspace
+ * DoVi source metadata to be passed from userspace
  */
 struct dovi_output_metadata {
 	/**
-	 * @dv_status: Dolby Vision status, active/not active
+	 * @dv_status: DoVi status, active/not active
 	 */
 	uint32_t oui;
 	uint8_t dv_status;
@@ -148,7 +148,7 @@ struct dovi_output_metadata {
 	uint8_t aux_debug;
 
 };
-#endif  // HAVE_DRM_HDR_OUTPUT_METADATA
+
 /* DRM HDR definitions. Not in the UAPI header, unfortunately. */
 enum hdmi_metadata_type {
 	HDMI_STATIC_METADATA_TYPE1 = 0,
@@ -178,9 +178,6 @@ struct avi_infoframe {
 	int c_range;
 };
 
-
-
-
 struct DisplayChromacities
 {
 	double RedX;
@@ -192,8 +189,6 @@ struct DisplayChromacities
 	double WhiteX;
 	double WhiteY;
 };
-
-
 
 static const DisplayChromacities DisplayChromacityList[] =
 {
@@ -226,7 +221,7 @@ public:
 		EGL_SMPTE2086_WHITE_POINT_Y_EXT,
 		EGL_SMPTE2086_MAX_LUMINANCE_EXT,
 		EGL_SMPTE2086_MIN_LUMINANCE_EXT
-};   
+	};   
     int device;
 
     drmModeModeInfo mode;
@@ -235,7 +230,7 @@ public:
     drmModeCrtc *crtc;
 	int crtc_index;
     uint32_t connectorId, HDRplaneId, SDRplaneId;
-	//	bool ok;
+
 	uint64_t colorimetry, rgb_quant_range, max_bpc, output_format, c_enc, c_range, in_formats;
 	uint32_t prop_id;
 	uint64_t crtc_id, fb_id, blob_id;
@@ -247,7 +242,7 @@ public:
 	uint64_t *modifiers = NULL;
 	avi_infoframe property_id;
 	static struct drm_hdr_output_metadata hdr_metadata;
-	static struct avi_infoframe avi_info;
+	static avi_infoframe avi_info;
 	uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
 		//	uint64_t output_format;
@@ -297,8 +292,8 @@ public:
 	bool flip = true;
 	/* Static variables set from command line */
 	static int isHDR;
-	static int isDolby;
-	static int is_std_Dolby;
+	static int isDoVi;
+	static int is_std_DoVi;
 	static hdmi_eotf eotf;
 	static int hdr_primaries; 
 	static int bit_depth;
@@ -319,22 +314,22 @@ public:
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
 	
 	int CreateFB_ID();
-	/* Parse EDID for HDR and Dolby Vision support report if display supports */
+	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);
 	void in_formats_info(int fd, uint32_t blob_id);
 	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
-	bool cta_is_dolby_video_block(const char *edid_ext);
+	bool cta_is_dovi_video_block(const char *edid_ext);
 
 	/* Set DRM Plane swap between HDR and SDR planes */
-	void FlipPage(bool flip, int isHDR, int isDolby, uint32_t fb_id);
+	void FlipPage(bool flip, uint32_t fb_id);
 	void SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id);
 	void DisablePlane(uint32_t plane_id); 
-	int SetPlaneId(int isHDR);
+	int SetPlaneId();
 
-	/* Userspace access to HDR, Dolby Vision, AVI Infoframes */
+	/* Userspace access to HDR, DoVi , AVI Infoframes */
 	void updateHDR_Infoframe(enum hdmi_eotf, int idx);
-	bool updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
-	void updateDoVi_Infoframe(enum hdmi_eotf, int enable, int dv_interface);
+	void updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe);
+	void updateDoVi_Infoframe(int enable, int dv_interface);
 
 	drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
     void swapBuffers() override;
