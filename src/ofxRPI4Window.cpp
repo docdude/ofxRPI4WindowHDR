@@ -1488,7 +1488,6 @@ int ofxRPI4Window::colorspace_on = 0;
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
 	
-//	 ofSetLogLevel(OF_LOG_VERBOSE);
     check_extensions();
     bEnableSetupScreen = true;
 //	colorspace_on = true;
@@ -1496,9 +1495,6 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     glesVersion = settings.glesVersion;
     InitDRM(); 
  
-//	isHDR = ofxRPI4Window::isHDR;//1;
-//	isDoVi = ofxRPI4Window::isDoVi; //1;
-//	is_std_DoVi = ofxRPI4Window::is_std_DoVi; //1;
 	initial_bit_depth = bit_depth;
 	switch (bit_depth) {
 		case 0:
