@@ -1488,6 +1488,7 @@ int ofxRPI4Window::colorspace_on = 0;
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
 	
+
     check_extensions();
     bEnableSetupScreen = true;
 //	colorspace_on = true;
@@ -1777,45 +1778,45 @@ void ofxRPI4Window::HDRWindowSetup()
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_BT2020_PQ_EXT not available\n";
 		}
+
 		if (strstr(client_extensions, "EGL_KHR_gl_colorspace")) {
 			ofLog() << "EGL_GL_COLORSPACE_KHR  available\n";
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
-		}
-		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };         
-		EGL_create_surface(attribs, config);
-#if 0	
-		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
-		const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-		if (extensions && (strstr(extensions, "EGL_KHR_platform_gbm") || strstr(extensions, "EGL_MESA_platform_gbm"))) {
-			createPlatformWindowSurfaceEXT = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
-			eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-		}
-		if (createPlatformWindowSurfaceEXT) {
-			surface = createPlatformWindowSurfaceEXT(display, config, gbmSurface, attribs);
-		} else {
-			ofLog() << "No eglCreatePlatformWindowSurface for GBM, falling back to eglCreateWindowSurface\n" ;
-			surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
+		}		
+		
+		if (hdr_primaries == 1) {
+			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE }; 
+	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_LINEAR_EXT,EGL_NONE }; 	
+			EGL_create_surface(attribs, config);
 		}
 
-#endif
+		if (hdr_primaries == 2) {
+			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT,EGL_NONE };    //linear Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR
+	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_EXT,EGL_NONE };   //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAME-BUFFER_ATTACHMENT_COLOR_ENCODING value of GL_SRGB.
+		//	EGLint attribs[] = {EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT,EGL_NONE }; //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR. The application is responsible for applying the appropriate transfer function when writing and reading pixels
+   			EGL_create_surface(attribs, config);
+		}
 
-//for (uint32_t i = 0; i < 8; i++)
-//{
-//    eglSurfaceAttrib(display,surface, SurfaceAttribs[i],EGLint(DisplayChromacityList[1].ChromaVals[i] * EGL_METADATA_SCALING_EXT));
-//}
 #if 1
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[2].RedX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[2].RedY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[2].GreenX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[3],EGLint(DisplayChromacityList[2].GreenY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[4],EGLint(DisplayChromacityList[2].BlueX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[5],EGLint(DisplayChromacityList[2].BlueY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[6],EGLint(DisplayChromacityList[2].WhiteX * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[2].WhiteY * EGL_METADATA_SCALING_EXT));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
-		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[hdr_primaries].RedX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[hdr_primaries].RedY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[hdr_primaries].GreenX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[3],EGLint(DisplayChromacityList[hdr_primaries].GreenY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[4],EGLint(DisplayChromacityList[hdr_primaries].BlueX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[5],EGLint(DisplayChromacityList[hdr_primaries].BlueY * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[6],EGLint(DisplayChromacityList[hdr_primaries].WhiteX * EGL_METADATA_SCALING_EXT));
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[hdr_primaries].WhiteY * EGL_METADATA_SCALING_EXT));
+//		eglSurfaceAttrib(display, surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
+//		eglSurfaceAttrib(display ,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
 #endif
+        eglSurfaceAttrib(display, surface, SurfaceAttribs[8], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance)); //EGL_SMPTE2086_MAX_LUMINANCE_EXT
+                         
+        eglSurfaceAttrib(display, surface, SurfaceAttribs[9], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance/10000.0f));	//EGL_SMPTE2086_MIN_LUMINANCE_EXT
+                        
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[10], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_cll)); //EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT            
+
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[11], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_fall)); //EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT  
 
 	
 
@@ -2258,7 +2259,7 @@ int ret;
 		EGL_CONTEXT_MINOR_VERSION, 1,
 		EGL_NONE
 	};
-			
+			 
     if(config)
     {
         context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
@@ -2299,9 +2300,9 @@ int ret;
 		
 #endif
 
-
+#if 0
 		if (isDoVi || is_std_DoVi) {
-#if 1
+
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[2].RedX * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[2].RedY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[2].GreenX * EGL_METADATA_SCALING_EXT));
@@ -2312,9 +2313,9 @@ int ret;
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[2].WhiteY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
-#endif
+
 		} else {
-#if 1
+
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[0],EGLint(DisplayChromacityList[0].RedX * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[1],EGLint(DisplayChromacityList[0].RedY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[2],EGLint(DisplayChromacityList[0].GreenX * EGL_METADATA_SCALING_EXT));
@@ -2325,9 +2326,9 @@ int ret;
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[7],EGLint(DisplayChromacityList[0].WhiteY * EGL_METADATA_SCALING_EXT));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
 		eglSurfaceAttrib(display,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
-#endif			
+		
 		}
-
+#endif	
         if (!surface)
         {
             auto error = eglGetError();
@@ -2928,9 +2929,12 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
 			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe
  
-			updateHDR_Infoframe(ofxRPI4Window::eotf, ofxRPI4Window::hdr_primaries);// Display Gamut P3D65
+			updateHDR_Infoframe(ofxRPI4Window::eotf, hdr_primaries);// Display Gamut P3D65
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorimetry = 9; //BT2020_RGB
+//			if (hdr_primaries == 1)
+				avi_infoframe.colorimetry = 9; //BT2020_RGB
+//			if (hdr_primaries == 2)
+//				avi_infoframe.colorimetry = 11; //P3-D65	
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //1; //YCrCb444
 			avi_infoframe.max_bpc = avi_info.max_bpc; //10 bit
@@ -3158,13 +3162,12 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 		meta.hdmi_metadata_type1.display_primaries[2].y = std::round(DisplayChromacityList[idx].RedY * EGL_METADATA_SCALING_EXT);		
 		meta.hdmi_metadata_type1.white_point.x = std::round(DisplayChromacityList[idx].WhiteX * EGL_METADATA_SCALING_EXT);
 		meta.hdmi_metadata_type1.white_point.y = std::round(DisplayChromacityList[idx].WhiteY * EGL_METADATA_SCALING_EXT);
-//	meta.hdmi_metadata_type1.max_display_mastering_luminance = std::round(av_q2d(10000.0f * 10000.0f));
-//	meta.hdmi_metadata_type1.min_display_mastering_luminance = std::round(av_q2d((0.001f    * 10000.0f));
+
 		meta.hdmi_metadata_type1.max_display_mastering_luminance = (uint16_t)((float)hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance);// * 10000.0f);//(uint16_t)(10000.0f * 10000.0f);
 		meta.hdmi_metadata_type1.min_display_mastering_luminance = (uint16_t)((float)(hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance/10000.0f) * 10000.0f);//(uint16_t)(0.001f    * 10000.0f);
 		
-		meta.hdmi_metadata_type1.max_fall = (float)hdr_metadata.hdmi_metadata_type1.max_fall; // 400.0f;
-		meta.hdmi_metadata_type1.max_cll = (float)hdr_metadata.hdmi_metadata_type1.max_cll;//10000.0f;
+		meta.hdmi_metadata_type1.max_fall = (float)hdr_metadata.hdmi_metadata_type1.max_fall; 
+		meta.hdmi_metadata_type1.max_cll = (float)hdr_metadata.hdmi_metadata_type1.max_cll;
 		drmModeCreatePropertyBlob(device, &meta, sizeof(meta), (uint32_t*)&blob_id); 
 			
 	
