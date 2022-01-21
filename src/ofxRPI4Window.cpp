@@ -2301,8 +2301,8 @@ int ret;
 			
 		}
 #endif
-					EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
-				EGL_create_surface(attribs, config);		
+		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
+		EGL_create_surface(attribs, config);		
 #endif
 
 #if 0
@@ -2657,9 +2657,9 @@ void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
     glEnable(GL_DEPTH_TEST);
-	if (isHDR && isDoVi && is_std_DoVi && !colorspace_on) {
-		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
-	}
+//	if (isHDR && isDoVi && is_std_DoVi && !colorspace_on) {
+//		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+//	}
     renderer()->startRender();
 }
 
