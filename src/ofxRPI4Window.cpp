@@ -1795,7 +1795,7 @@ void ofxRPI4Window::HDRWindowSetup()
 			}
 		}
 
-		if (hdr_primaries == 2) {
+		if (hdr_primaries == 2 || hdr_primaries == 0) {
 			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT,EGL_NONE };    //linear Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR
 	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_EXT,EGL_NONE };   //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAME-BUFFER_ATTACHMENT_COLOR_ENCODING value of GL_SRGB.
    			EGL_create_surface(attribs, config);
