@@ -1786,15 +1786,18 @@ void ofxRPI4Window::HDRWindowSetup()
 		}		
 		
 		if (hdr_primaries == 1) {
-			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE }; 
-	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_LINEAR_EXT,EGL_NONE }; 	
-			EGL_create_surface(attribs, config);
+			if (static_cast<int>(eotf) == 2) {
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };
+				EGL_create_surface(attribs, config);				
+			} else {
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_LINEAR_EXT,EGL_NONE }; 	
+				EGL_create_surface(attribs, config);
+			}
 		}
 
 		if (hdr_primaries == 2) {
 			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT,EGL_NONE };    //linear Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR
 	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_EXT,EGL_NONE };   //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAME-BUFFER_ATTACHMENT_COLOR_ENCODING value of GL_SRGB.
-		//	EGLint attribs[] = {EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT,EGL_NONE }; //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR. The application is responsible for applying the appropriate transfer function when writing and reading pixels
    			EGL_create_surface(attribs, config);
 		}
 
@@ -1810,13 +1813,13 @@ void ofxRPI4Window::HDRWindowSetup()
 //		eglSurfaceAttrib(display, surface, SurfaceAttribs[8],EGLint(10000.0f * 10000.0f));
 //		eglSurfaceAttrib(display ,surface, SurfaceAttribs[9],EGLint(0.001f    * 10000.0f));
 #endif
-        eglSurfaceAttrib(display, surface, SurfaceAttribs[8], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance)); //EGL_SMPTE2086_MAX_LUMINANCE_EXT
+        eglSurfaceAttrib(display, surface, SurfaceAttribs[8], hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance); //EGL_SMPTE2086_MAX_LUMINANCE_EXT
                          
-        eglSurfaceAttrib(display, surface, SurfaceAttribs[9], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance/10000.0f));	//EGL_SMPTE2086_MIN_LUMINANCE_EXT
+        eglSurfaceAttrib(display, surface, SurfaceAttribs[9], hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance);	//EGL_SMPTE2086_MIN_LUMINANCE_EXT
                         
-		eglSurfaceAttrib(display, surface, SurfaceAttribs[10], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_cll)); //EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT            
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[10], hdr_metadata.hdmi_metadata_type1.max_cll); //EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT            
 
-		eglSurfaceAttrib(display, surface, SurfaceAttribs[11], METADATA_SCALE(hdr_metadata.hdmi_metadata_type1.max_fall)); //EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT  
+		eglSurfaceAttrib(display, surface, SurfaceAttribs[11], hdr_metadata.hdmi_metadata_type1.max_fall); //EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT  
 
 	
 
@@ -2277,7 +2280,7 @@ int ret;
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
-
+#if 0
 		if (isHDR && isDoVi && is_std_DoVi) {
 			if (colorspace_on) { 
 				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
@@ -2297,7 +2300,9 @@ int ret;
 			}
 			
 		}
-		
+#endif
+					EGLint attribs[] = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_LINEAR_KHR, EGL_NONE }; 
+				EGL_create_surface(attribs, config);		
 #endif
 
 #if 0
@@ -3149,25 +3154,46 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 		blob_id = 0;
 	
 		struct drm_hdr_output_metadata meta;
+		if (static_cast<int>(eotf) == 3) {
+			meta.metadata_type = HDMI_STATIC_METADATA_TYPE1;
+			meta.hdmi_metadata_type1.eotf = eotf;
+			meta.hdmi_metadata_type1.metadata_type = HDMI_STATIC_METADATA_TYPE1;
 
-		meta.metadata_type = HDMI_STATIC_METADATA_TYPE1;
-		meta.hdmi_metadata_type1.eotf = eotf;
-		meta.hdmi_metadata_type1.metadata_type = HDMI_STATIC_METADATA_TYPE1;
+			meta.hdmi_metadata_type1.display_primaries[0].x = 0;
+			meta.hdmi_metadata_type1.display_primaries[0].y = 0;
+			meta.hdmi_metadata_type1.display_primaries[1].x = 0;
+			meta.hdmi_metadata_type1.display_primaries[1].y = 0;
+			meta.hdmi_metadata_type1.display_primaries[2].x = 0;
+			meta.hdmi_metadata_type1.display_primaries[2].y = 0;		
+			meta.hdmi_metadata_type1.white_point.x = 0;
+			meta.hdmi_metadata_type1.white_point.y = 0;
 
-		meta.hdmi_metadata_type1.display_primaries[0].x = std::round(DisplayChromacityList[idx].GreenX * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.display_primaries[0].y = std::round(DisplayChromacityList[idx].GreenY * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.display_primaries[1].x = std::round(DisplayChromacityList[idx].BlueX * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.display_primaries[1].y = std::round(DisplayChromacityList[idx].BlueY * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.display_primaries[2].x = std::round(DisplayChromacityList[idx].RedX * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.display_primaries[2].y = std::round(DisplayChromacityList[idx].RedY * EGL_METADATA_SCALING_EXT);		
-		meta.hdmi_metadata_type1.white_point.x = std::round(DisplayChromacityList[idx].WhiteX * EGL_METADATA_SCALING_EXT);
-		meta.hdmi_metadata_type1.white_point.y = std::round(DisplayChromacityList[idx].WhiteY * EGL_METADATA_SCALING_EXT);
-
-		meta.hdmi_metadata_type1.max_display_mastering_luminance = (uint16_t)((float)hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance);// * 10000.0f);//(uint16_t)(10000.0f * 10000.0f);
-		meta.hdmi_metadata_type1.min_display_mastering_luminance = (uint16_t)((float)(hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance/10000.0f) * 10000.0f);//(uint16_t)(0.001f    * 10000.0f);
+			meta.hdmi_metadata_type1.max_display_mastering_luminance = 0;
+			meta.hdmi_metadata_type1.min_display_mastering_luminance = 0;
 		
-		meta.hdmi_metadata_type1.max_fall = (float)hdr_metadata.hdmi_metadata_type1.max_fall; 
-		meta.hdmi_metadata_type1.max_cll = (float)hdr_metadata.hdmi_metadata_type1.max_cll;
+			meta.hdmi_metadata_type1.max_fall = 0; 
+			meta.hdmi_metadata_type1.max_cll = 0;
+		} else {
+			meta.metadata_type = HDMI_STATIC_METADATA_TYPE1;
+			meta.hdmi_metadata_type1.eotf = eotf;
+			meta.hdmi_metadata_type1.metadata_type = HDMI_STATIC_METADATA_TYPE1;
+
+			meta.hdmi_metadata_type1.display_primaries[0].x = std::round(DisplayChromacityList[idx].GreenX * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.display_primaries[0].y = std::round(DisplayChromacityList[idx].GreenY * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.display_primaries[1].x = std::round(DisplayChromacityList[idx].BlueX * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.display_primaries[1].y = std::round(DisplayChromacityList[idx].BlueY * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.display_primaries[2].x = std::round(DisplayChromacityList[idx].RedX * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.display_primaries[2].y = std::round(DisplayChromacityList[idx].RedY * EGL_METADATA_SCALING_EXT);		
+			meta.hdmi_metadata_type1.white_point.x = std::round(DisplayChromacityList[idx].WhiteX * EGL_METADATA_SCALING_EXT);
+			meta.hdmi_metadata_type1.white_point.y = std::round(DisplayChromacityList[idx].WhiteY * EGL_METADATA_SCALING_EXT);
+
+			meta.hdmi_metadata_type1.max_display_mastering_luminance = (uint16_t)((float)hdr_metadata.hdmi_metadata_type1.max_display_mastering_luminance);// * 10000.0f);//(uint16_t)(10000.0f * 10000.0f);
+			meta.hdmi_metadata_type1.min_display_mastering_luminance = (uint16_t)((float)(hdr_metadata.hdmi_metadata_type1.min_display_mastering_luminance/10000.0f) * 10000.0f);//(uint16_t)(0.001f    * 10000.0f);
+		
+			meta.hdmi_metadata_type1.max_fall = (float)hdr_metadata.hdmi_metadata_type1.max_fall; 
+			meta.hdmi_metadata_type1.max_cll = (float)hdr_metadata.hdmi_metadata_type1.max_cll;
+		}
+			
 		drmModeCreatePropertyBlob(device, &meta, sizeof(meta), (uint32_t*)&blob_id); 
 			
 	
