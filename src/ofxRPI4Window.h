@@ -309,7 +309,7 @@ public:
 	int starting_bpc;
 	static int colorspace_on;
 	int colorspace_status;
-	
+	static int shader_init;
 	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
 			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
 	void get_format_modifiers(int fd, uint32_t blob_id, int format_index);
@@ -355,7 +355,7 @@ public:
     void SDRWindowSetup();   
 	
     std::shared_ptr<ofBaseRenderer> currentRenderer;
-    
+   // static ofShader currentShader;
   
     EGLDisplay getEGLDisplay() override;
     EGLContext getEGLContext() override;

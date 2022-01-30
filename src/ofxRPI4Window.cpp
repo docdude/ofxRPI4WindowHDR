@@ -1479,11 +1479,13 @@ int ofxRPI4Window::isDoVi = 0;
 int ofxRPI4Window::is_std_DoVi = 0;
 int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
-hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2);
+hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2); 
 int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
 drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
 int ofxRPI4Window::colorspace_on = 0;
+int ofxRPI4Window::shader_init = 0;
+
 
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
@@ -1577,15 +1579,16 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				SDRWindowSetup();
 			}
 		} else if (isHDR && isDoVi && is_std_DoVi) {
-			ofLog() << "DRM: setting up Standard DoVi(8 bit) window/surface";
+			    ofLog() << "DRM: setting up Standard DoVi(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 		} else {
-			if (bit_depth == 10) {
+			if (bit_depth == 10 && avi_info.max_bpc == 10) {
 				ofLog() << "DRM: setting up SDR(10 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
 			} else {
+				avi_info.max_bpc = 8;
 				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
@@ -1828,13 +1831,15 @@ void ofxRPI4Window::HDRWindowSetup()
             auto error = eglGetError();
             ofLogError() << "surface ERROR: " << eglErrorString(error);
         }
-            
+           
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-
-
-EGL_info();	
+		if (rgb_quant_range == 1) {
+		  ofShader shader;
+		  shader.load("rgb2ycbcr");
+		}
+		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
 			
 	} else {
@@ -2358,11 +2363,16 @@ int ret;
 			}
 		} 
 #endif		
+
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
+		if (rgb_quant_range == 1) {
+		  ofShader shader;
+		  shader.load("rgb2ycbcr");
+		}
 
-   EGL_info();  
+   EGL_info();   
 		ofLog() << "GBM: - initialized GBM";
 
         }else
@@ -2465,10 +2475,13 @@ void ofxRPI4Window::update()
 		 	if (bit_depth == 10) {
 				ofLog() << "DRM: updating SDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				if (avi_info.rgb_quant_range == 1)
+					shader_init = 1;
 				HDRWindowSetup();
 			} else {
 				ofLog() << "DRM: updating SDR(8 bit) window/surface"; 
-
+				if (avi_info.rgb_quant_range == 1)
+					shader_init = 1;
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 			}
@@ -2657,9 +2670,7 @@ void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
     glEnable(GL_DEPTH_TEST);
-//	if (isHDR && isDoVi && is_std_DoVi && !colorspace_on) {
-//		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
-//	}
+
     renderer()->startRender();
 }
 
@@ -2943,7 +2954,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //1; //YCrCb444
 			avi_infoframe.max_bpc = avi_info.max_bpc; //10 bit
-			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
+			avi_infoframe.c_enc = avi_info.c_enc; //ITU-R BT.2020 YCbCr set to 2
 			avi_infoframe.c_range = 1; //YCbCr Full range 
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	  
 #if 1 
@@ -2961,7 +2972,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
 			avi_infoframe.c_range = 1; //YCbCr full range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
-#endif
+#endif 
 #if 1  
 		} else if (isHDR && isDoVi && is_std_DoVi) {
 			DisablePlane(SDRplaneId);
@@ -2985,11 +2996,11 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorimetry = 0; //Default
+			avi_infoframe.colorimetry = avi_info.colorimetry; //Default
 			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range;  //Full range [0-255] = 2
 			avi_infoframe.output_format = avi_info.output_format; //1; //YCrCb444
 			avi_infoframe.max_bpc = avi_info.max_bpc; //8 bit
-			avi_infoframe.c_enc = 1; //ITU-R BT.709 YCbCr
+			avi_infoframe.c_enc = avi_info.c_enc; //ITU-R BT.709 YCbCr  set to 1
 			avi_infoframe.c_range = 1; //YCbCr full range
 			updateAVI_Infoframe(SDRplaneId, avi_infoframe);	
 		}
@@ -3370,7 +3381,6 @@ void ofxRPI4Window::draw()
     int waiting_for_flip = 1;
     auto startFrame = ofGetElapsedTimeMillis();
     gettimeofday(&t0, 0);
-  //TODO: Add user input to change HDR infoframe and AVI infoframe prior to drawing.    
 	   
     if(skipRender)
     {
