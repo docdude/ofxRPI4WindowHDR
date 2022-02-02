@@ -1650,9 +1650,9 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		uniform vec4 globalColor;
 		uniform int bits;
 		uniform int colorimetry;
-
+		uniform int color_format;
+		
 		out vec4 outputColor;
-
 
 		vec4 RGBtoYCbCr444(vec4 rgb)
 		{
@@ -1689,7 +1689,13 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			float Cb = round(((-primaries[idx][0]/d) * rgb.r*scale - (primaries[idx][1]/d) * rgb.g*scale + 0.5 * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
 			float Cr = round((0.5 * rgb.r*scale - (primaries[idx][1]/e) * rgb.g*scale - (primaries[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
 			float a = 1.0;
-			return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
+			if (color_format == 1) {
+				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
+			}
+			if (color_format == 2) {
+				return vec4(Y/normalizer,Cb/normalizer,Cr/normalizer, a);
+
+			}
 		}
 
 
@@ -1910,8 +1916,8 @@ void ofxRPI4Window::HDRWindowSetup()
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 		if (avi_info.rgb_quant_range == 1 && !shader_init) {//!shader.isLoaded()) {
 	//	  ofShader shader;
-		  shader.load("rgb2ycbcr");
-	//rgb2ycbcr_shader();
+	//	  shader.load("rgb2ycbcr");
+	rgb2ycbcr_shader();
 		}
 		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
@@ -2442,9 +2448,8 @@ int ret;
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 		if (avi_info.rgb_quant_range == 1  && !shader_init) { //!shader.isLoaded()) {
-	//	  ofShader shader;
-		  shader.load("rgb2ycbcr");
-	//	rgb2ycbcr_shader();
+		//  shader.load("rgb2ycbcr");
+		rgb2ycbcr_shader();
 
 		}
 
