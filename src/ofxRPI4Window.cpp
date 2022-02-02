@@ -1908,7 +1908,7 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (rgb_quant_range == 1){//&& !ofxRPI4Window::shader.isLoaded()) {
+		if (avi_info.rgb_quant_range == 1 && !shader_init) {//!shader.isLoaded()) {
 	//	  ofShader shader;
 		  shader.load("rgb2ycbcr");
 	//rgb2ycbcr_shader();
@@ -2441,7 +2441,7 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (rgb_quant_range == 1){//  && !shader.isLoaded()) {
+		if (avi_info.rgb_quant_range == 1  && !shader_init) { //!shader.isLoaded()) {
 	//	  ofShader shader;
 		  shader.load("rgb2ycbcr");
 	//	rgb2ycbcr_shader();
