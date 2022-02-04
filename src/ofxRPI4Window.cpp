@@ -1657,9 +1657,9 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		vec4 RGBtoYCbCr444(vec4 rgb)
 		{
 
-			float primaries[2][3];
-			primaries[0] = float[](0.2126, 0.7152, 0.0722);
-			primaries[1] = float[](0.2627, 0.6780, 0.0593); 
+			float coeffs[2][3];
+			coeffs[0] = float[](0.2126, 0.7152, 0.0722);
+			coeffs[1] = float[](0.2627, 0.6780, 0.0593); 
 
 			float d,e,scale, normalizer;
 			int shift = bits - 8;
@@ -1685,9 +1685,9 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}	
 			scale = float((256 << shift) - 1);
 
-			float Y = round((primaries[idx][0] * rgb.r*scale + primaries[idx][1]* rgb.g*scale + primaries[idx][2] * rgb.b*scale));
-			float Cb = round(((-primaries[idx][0]/d) * rgb.r*scale - (primaries[idx][1]/d) * rgb.g*scale + 0.5 * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
-			float Cr = round((0.5 * rgb.r*scale - (primaries[idx][1]/e) * rgb.g*scale - (primaries[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
+			float Y = round((coeffs[idx][0] * rgb.r*scale + coeffs[idx][1]* rgb.g*scale + coeffs[idx][2] * rgb.b*scale));
+			float Cb = round(((-coeffs[idx][0]/d) * rgb.r*scale - (coeffs[idx][1]/d) * rgb.g*scale + 0.5 * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
+			float Cr = round((0.5 * rgb.r*scale - (coeffs[idx][1]/e) * rgb.g*scale - (coeffs[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
 			float a = 1.0;
 			if (color_format == 1) {
 				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
@@ -1866,7 +1866,7 @@ void ofxRPI4Window::HDRWindowSetup()
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}		
-		
+		 
 		if (hdr_primaries == 1) {
 			if (static_cast<int>(eotf) == 2) {
 				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };
@@ -1903,7 +1903,7 @@ void ofxRPI4Window::HDRWindowSetup()
 
 		eglSurfaceAttrib(display, surface, SurfaceAttribs[11], hdr_metadata.hdmi_metadata_type1.max_fall); //EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT  
 
-	
+	 
 
         if (!surface)
         {
@@ -1914,10 +1914,11 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.rgb_quant_range == 1 && !shader_init) {//!shader.isLoaded()) {
+		if (avi_info.rgb_quant_range == 1 && !shader_init) {
 	//	  ofShader shader;
 	//	  shader.load("rgb2ycbcr");
-	rgb2ycbcr_shader();
+	//	  shader_init=0;
+			rgb2ycbcr_shader();
 		}
 		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
@@ -2435,7 +2436,7 @@ int ret;
 //formats = calloc(num_formats, sizeof(EGLint));
             ok = eglQueryDmaBufFormatsEXT(display, num_formats,
                                           formats, &num_formats);
-   
+    
 
             ofLog() << "EGL formats supported:";
             for (int i = 0; i < num_formats; ++i) {
@@ -2447,10 +2448,10 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.rgb_quant_range == 1  && !shader_init) { //!shader.isLoaded()) {
+		if (avi_info.rgb_quant_range == 1 && !shader_init) {
 		//  shader.load("rgb2ycbcr");
-		rgb2ycbcr_shader();
-
+		//	shader_init=0;
+			rgb2ycbcr_shader();
 		}
 
    EGL_info();   
@@ -2491,16 +2492,19 @@ void ofxRPI4Window::update()
 				colorspace_on = 0;
 			break;
 			case 8:
-				if (colorspace_on)
-				ofLog() << "DRM: input bit_depth of " << bit_depth << " bits switching back to starting output bpc of " << starting_bpc << " bits"; 
-				avi_info.max_bpc = starting_bpc;
+				if (colorspace_on) {
+				   ofLog() << "DRM: input bit_depth of " << bit_depth << " bits switching to output bpc of " << bit_depth << " bits"; 
+				  //  avi_info.max_bpc = starting_bpc;
+				   avi_info.max_bpc = bit_depth;
+
+				}
 			break;
 			case 10:
 				if (bit_depth != avi_info.max_bpc) {
 					ofLogError() << "DRM: input bit_depth of " << bit_depth << " bits not compatible with output bpc of " << avi_info.max_bpc << " bits, switching output bpc to 10 bits"; 
 					avi_info.max_bpc = 10;
 				}
-								if (!colorspace_on) bit_depth=8;
+				if (!colorspace_on) bit_depth=8;
 			break;
 			case 12:
 				if (bit_depth != avi_info.max_bpc) {
