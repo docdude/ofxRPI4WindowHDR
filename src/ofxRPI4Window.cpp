@@ -1637,8 +1637,10 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		#version 310 es
 		uniform mat4 modelViewProjectionMatrix;
 		in vec4 position;
-
+		in vec2 texcoord;
+		out vec2 texCoordVarying;
 		void main(){
+			texCoordVarying = texcoord;
 			gl_Position = modelViewProjectionMatrix * position;
 		}
 
@@ -1651,9 +1653,12 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		uniform int bits;
 		uniform int colorimetry;
 		uniform int color_format;
-		
-		out vec4 outputColor;
+		uniform int is_image;
+		uniform sampler2D tex0;
+		in vec2 texCoordVarying; 
 
+		out vec4 outputColor;
+		const float const_2 = 1.00000000000000000000;
 		vec4 RGBtoYCbCr444(vec4 rgb)
 		{
 
@@ -1700,13 +1705,17 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 
 
 		void main() {
-
-			outputColor = RGBtoYCbCr444(globalColor.rgba);
+			if (is_image == 1) {
+				vec4 color = vec4(const_2) * texture2D(tex0, texCoordVarying);
+				outputColor = RGBtoYCbCr444(color.rgba);
+			} else {
+				outputColor = RGBtoYCbCr444(globalColor.rgba);
+			}
 		} 
 	)";
 
 	shader.setup(settings);	
-}	
+}
 
 void ofxRPI4Window::HDRWindowSetup()
 {
