@@ -1196,8 +1196,8 @@ bool ofxRPI4Window::InitDRM()
     }
     else
        ofLog() << "DRM: ATOMIC caps set";
- 
-    ret = drmSetClientCap(device, DRM_CLIENT_CAP_STEREO_3D, 1);
+	//set to 0 to avoid listing extra modes when display is 3D capable, causes issue with mode index 
+    ret = drmSetClientCap(device, DRM_CLIENT_CAP_STEREO_3D, 0);
    if (ret)
    {
      ofLogError() << "DRM: failed to set stereo 3d capability: " << strerror(errno);
