@@ -254,7 +254,8 @@ public:
     gbm_bo *previousBo = NULL;
     uint32_t previousFb = 0;
 	uint32_t buffer_width, buffer_height;
-    static ofShader shader;    
+    static ofShader shader;  
+ //   static ofShader dovi_shader; 	
     ofRectangle currentWindowRect;
     ofOrientation orientation;
     bool bEnableSetupScreen;
@@ -310,7 +311,7 @@ public:
 	static int hdr_primaries; 
 	static int bit_depth;
 	static int mode_idx;
-	
+	static int dv_metadata;	
 	int current_bit_depth;
 	int initial_bit_depth;
 	int starting_bpc;

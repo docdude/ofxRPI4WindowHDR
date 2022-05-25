@@ -1271,6 +1271,9 @@ bool ofxRPI4Window::InitDRM()
 		drmModeModeInfo *current_mode = &connector->modes[i];
 		if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
 			mode = connector->modes[i];
+	//	if (strcmp(current_mode->name, "1920x1080") == 0 && mode_vrefresh(current_mode) == 24) {
+	//		ofxRPI4Window::mode_idx = i;
+			
 			break;
 		}
 	}
@@ -1285,7 +1288,7 @@ bool ofxRPI4Window::InitDRM()
 	}
 	if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
 	//End BiasiLinux patch for compatiblity with old version
-
+    ofLog() << "DRM: Current Mode Index " << ofxRPI4Window::mode_idx;
    
     currentWindowRect = ofRectangle(0, 0, mode.hdisplay, mode.vdisplay);
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
@@ -1472,13 +1475,14 @@ void ofxRPI4Window::EGL_info()
             //get_proc_gl(GL_OES_EGL_image, glEGLImageTargetTexture2DOES);
        
 #endif   
-}
+} 
 
 int ofxRPI4Window::isHDR = 0;
 int ofxRPI4Window::isDoVi = 0;
 int ofxRPI4Window::is_std_DoVi = 0;
 int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
+int ofxRPI4Window::dv_metadata = 0;
 hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2); 
 int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
@@ -1486,7 +1490,7 @@ drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
 int ofxRPI4Window::colorspace_on = 0;
 int ofxRPI4Window::shader_init = 0;
 ofShader ofxRPI4Window::shader;
-
+//ofShader ofxRPI4Window::dovi_shader;
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
 	
@@ -1579,9 +1583,15 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				SDRWindowSetup();
 			}
 		} else if (isHDR && isDoVi && is_std_DoVi) {
+			if (bit_depth == 10 && avi_info.max_bpc == 10) {
+				ofLog() << "DRM: setting up Standard DoVi(10 bit) window/surface";
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				HDRWindowSetup();
+			} else {
 			    ofLog() << "DRM: setting up Standard DoVi(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
+			}
 		} else {
 			if (bit_depth == 10 && avi_info.max_bpc == 10) {
 				ofLog() << "DRM: setting up SDR(10 bit) window/surface";
@@ -1653,36 +1663,82 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		uniform int bits;
 		uniform int colorimetry;
 		uniform int color_format;
+		uniform int rgb_quant_range;
 		uniform int is_image;
+		uniform int is_std_DoVi;
 		uniform sampler2D tex0;
 		in vec2 texCoordVarying; 
 
 		out vec4 outputColor;
-		const float const_2 = 1.00000000000000000000;
-		vec4 RGBtoYCbCr444(vec4 rgb)
+		const float const_2 = float(1.00000000000000000000);
+		
+		float rand(float co) { 
+			return fract(sin(co*(91.3458)) * 47453.5453); 
+		}
+		
+		vec4 RGBtoYCbCr(vec4 rgb)
 		{
 
-			float coeffs[2][3];
-			coeffs[0] = float[](0.2126, 0.7152, 0.0722);
-			coeffs[1] = float[](0.2627, 0.6780, 0.0593); 
-
-			float d,e,scale, normalizer;
+			float coeffs[4][3];
+			coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
+			coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
+			coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
+			coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
+			
+			float d,e,f1,f2,scale, normalizer;
 			int shift = bits - 8;
-			float scalar1 = float(224 << shift);
-			float scalar2 = float(219 << shift);
+			float scalar_full1 = float(256 << shift);
+			float scalar_full2 = float(255 << shift);
+			float scalar_limit1 = float(224 << shift);
+			float scalar_limit2 = float(219 << shift);
+			float scalar1;
+			float scalar2;
 			float offset  = float(128 << shift);
+			float dovi_offset1 = 0.0; 
+			float dovi_offset2 = 0.0; 
 			int idx;
-	
+			if (rgb_quant_range == 1) {
+				scalar1=scalar_limit1;
+				scalar2=scalar_limit2;
+			}
+			if (rgb_quant_range == 2) {
+				scalar1=scalar_full1;
+				scalar2=scalar_full2;
+			}
 			if (colorimetry == 2) {
-				idx = 0;
-				d = 1.8556;
-				e = 1.5748;
+				if (is_std_DoVi == 1) {
+					idx = 2;
+					d = 17369./9574.; //1.814184249;
+					e = 14739./9574.; //1.5394819;
+					f1 = 0.511424486;
+					f2 = 0.511451232; 
+
+					dovi_offset1 = 0.5;
+					dovi_offset2 = 0.0625;
+				} else {
+					idx = 0;
+					d = 1.8556;
+					e = 1.5748;
+					f1 = f2 = 0.5;
+					
+				}
 			}	
 			if (colorimetry == 9) {
-				idx = 1;
-				d = 1.8814;
-				e = 1.4746;
+				if (is_std_DoVi == 1) {
+					idx = 3;
+					d = 17610./9574.; //1.839356591;
+					e = 13802./9574.; //1.441612701;
+					f1 = f2 = 0.51143365;
+					dovi_offset1 = 0.5;
+					dovi_offset2 = 0.0625;
+				} else {
+					idx = 1;
+					d = 1.8814;
+					e = 1.4746;
+					f1 = f2 = 0.5;
+				}
 			}
+
 			normalizer = float((256 << shift) - 1);
 		
 			if (bits == 10) {
@@ -1690,31 +1746,50 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}	
 			scale = float((256 << shift) - 1);
 
-			float Y = round((coeffs[idx][0] * rgb.r*scale + coeffs[idx][1]* rgb.g*scale + coeffs[idx][2] * rgb.b*scale));
-			float Cb = round(((-coeffs[idx][0]/d) * rgb.r*scale - (coeffs[idx][1]/d) * rgb.g*scale + 0.5 * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
-			float Cr = round((0.5 * rgb.r*scale - (coeffs[idx][1]/e) * rgb.g*scale - (coeffs[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
+			float Y = round((coeffs[idx][0] * rgb.r*scale + coeffs[idx][1]* rgb.g*scale + coeffs[idx][2] * rgb.b*scale)-dovi_offset1);
+			float Cb = round((((-coeffs[idx][0]/d) * rgb.r*scale - (coeffs[idx][1]/d) * rgb.g*scale + float(f1) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset1); // Chrominance Blue
+			float Cr = round(((float(f2) * rgb.r*scale - (coeffs[idx][1]/e) * rgb.g*scale - (coeffs[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset2); // Chrominance Red
 			float a = 1.0;
+
 			if (color_format == 1) {
 				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
 			}
 			if (color_format == 2) {
 				return vec4(Y/normalizer,Cb/normalizer,Cr/normalizer, a);
-
 			}
+			if (is_std_DoVi == 1) {
+
+			//	vec2 u_resolution = vec2(1920.,1080.);
+			//	vec2 txc = gl_FragCoord.xy;
+			//	vec2 txc =  vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) - 0.5;
+				// even
+			//	if (int(floor(txc.x)) % 2 == 0) {
+				if(mod(gl_FragCoord.x,2.0)<1.0) {
+					return vec4(Cb/normalizer,Y/normalizer,Cr/normalizer, a);
+				// odd
+				} else {
+					return vec4(Cr/normalizer,Y/normalizer,Cb/normalizer, a);
+				}
+			} 
+
 		}
 
 
 		void main() {
 			if (is_image == 1) {
 				vec4 color = vec4(const_2) * texture2D(tex0, texCoordVarying);
-				outputColor = RGBtoYCbCr444(color.rgba);
+				outputColor = RGBtoYCbCr(color.rgba);
 			} else {
-				outputColor = RGBtoYCbCr444(globalColor.rgba);
+				outputColor = RGBtoYCbCr(globalColor.rgba);
+				//vec4 color = RGBtoYCbCr(globalColor.rgba);
+				//dovi_rpu_inject(color.rgba);
+				//outputColor = color;
 			}
 		} 
 	)";
 
 	shader.setup(settings);	
+//	dovi_shader.setup(settings);
 }
 
 void ofxRPI4Window::HDRWindowSetup()
@@ -1923,7 +1998,7 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.rgb_quant_range == 1 && !shader_init) {
+		if ((avi_info.output_format != 0 && !shader_init) || (is_std_DoVi && !shader_init)) {
 	//	  ofShader shader;
 	//	  shader.load("rgb2ycbcr");
 	//	  shader_init=0;
@@ -2457,7 +2532,7 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.rgb_quant_range == 1 && !shader_init) {
+		if ((avi_info.output_format != 0 && !shader_init) || (is_std_DoVi && !shader_init)) {
 		//  shader.load("rgb2ycbcr");
 		//	shader_init=0;
 			rgb2ycbcr_shader();
@@ -2559,10 +2634,19 @@ void ofxRPI4Window::update()
 			}	
 
 		} else if (isHDR && isDoVi && is_std_DoVi) {
-
-			ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
-			FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-			SDRWindowSetup();
+		 	if (bit_depth == 10) {
+				ofLog() << "DRM: updating Standard DoVi(10 bit) window/surface"; 
+				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
+				if (avi_info.rgb_quant_range == 2)
+					shader_init = 1;
+				HDRWindowSetup();
+			} else {
+				ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
+				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
+				if (avi_info.rgb_quant_range == 2)
+					shader_init = 1;				
+				SDRWindowSetup();
+			}
 
 		} 
 		else {
@@ -2943,7 +3027,7 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 			ofLogError() << "Unable to find Colorimetry";
 		} else {
 		    /* set colorimetry to Default = 0 */
-			colorimetry = 0; //TODO: Set this from web interface
+			colorimetry = 0; 
 
 			drm_mode_atomic_set_property(device, req, "Colorimetry" /* in */, connectorId/* in */,
 					prop_id /* in */, colorimetry /* in */, prop /* in */);
@@ -3075,7 +3159,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
 			updateDoVi_Infoframe(1, 1); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
-			avi_infoframe.colorimetry = 0; //Default
+			avi_infoframe.colorimetry = avi_info.colorimetry; //Default
 			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
@@ -3368,7 +3452,7 @@ first_req = 1;
 			ofLogError() << "Unable to find Colorspace";
 		} else {
 		    /* set colorimtery */
-			colorimetry = avi_infoframe.colorimetry; //TODO: Set this from web interface
+			colorimetry = avi_infoframe.colorimetry; 
 
 	drm_mode_atomic_set_property(device, req, "Colorimetry" /* in */, connectorId/* in */,
 			prop_id /* in */, colorimetry /* in */, prop /* in */);
