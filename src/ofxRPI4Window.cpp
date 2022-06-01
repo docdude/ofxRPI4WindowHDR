@@ -976,7 +976,7 @@ ofxRPI4Window::find_device(void)
 //    drmDevicePtr *devices;
 
     drmDevicePtr device;
-    int fd, ret, max_devices;
+    int fd = 0, ret = 0, max_devices = 0;
     ofLog() << "--- Checking the number of DRM device available ---";
     max_devices = drmGetDevices2(0, NULL, 0);
     if (max_devices <= 0) {
@@ -3654,6 +3654,7 @@ bool ofxRPI4Window::DestroyWindow()
    eglTerminate(display);
    display = EGL_NO_DISPLAY;
   }
+  gbmClean();
   ofLog() << "GBM: - deinitialized GBM";
   return true;
 }
@@ -3673,8 +3674,8 @@ void ofxRPI4Window::DestroySurface()
   if (surface != EGL_NO_SURFACE)
   {
   eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-   // eglDestroySurface(display, surface);
-  //  surface = EGL_NO_SURFACE;
+    eglDestroySurface(display, surface);
+    surface = EGL_NO_SURFACE;
   }
 }
 void ofxRPI4Window::gbmClean()
@@ -3705,8 +3706,10 @@ void ofxRPI4Window::gbmClean()
         drmModeRmFB(device, previousFb);
         gbm_surface_release_buffer(gbmSurface, previousBo);
     }
-    
+
+  if (gbmSurface != NULL)   
     gbm_surface_destroy(gbmSurface);
+  if (gbmDevice != NULL)
     gbm_device_destroy(gbmDevice);
 }
 

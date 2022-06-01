@@ -208,10 +208,10 @@ class ofxRPI4Window : public ofAppBaseGLESWindow
 public:
     
 
-    EGLDisplay display;
-	EGLImageKHR image;
-    EGLContext context;
-    EGLSurface surface;
+    EGLDisplay display = NULL;
+	EGLImageKHR image = NULL;
+    EGLContext context = NULL;
+    EGLSurface surface = NULL;
 	
 	EGLint SurfaceAttribs [12] = {
 		EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT,       
