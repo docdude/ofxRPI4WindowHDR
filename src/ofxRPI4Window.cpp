@@ -3651,8 +3651,8 @@ bool ofxRPI4Window::DestroyWindow()
 
   if (display != EGL_NO_DISPLAY)
   {
- //  eglTerminate(display);
- //  display = EGL_NO_DISPLAY;
+   eglTerminate(display);
+   display = EGL_NO_DISPLAY;
   }
   ofLog() << "GBM: - deinitialized GBM";
   return true;
