@@ -443,7 +443,7 @@ void ofxRPI4Window::in_formats_info(int fd, uint32_t blob_id)
 	}
 
 
-//	drmModeFreePropertyBlob(blob);
+	drmModeFreePropertyBlob(blob);
 
 
 }
@@ -687,7 +687,8 @@ gbm_get_display (gbm_device* gbmDevice)
 			ofLogError() << "No EGL_KHR_platform_gbm available\n";
             abort();
         }
-	  static const int MAX_DEVICES = 32;
+#if 0
+  static const int MAX_DEVICES = 32;
   EGLDeviceEXT eglDevs[MAX_DEVICES];
   EGLint numDevices;
 
@@ -697,8 +698,8 @@ gbm_get_display (gbm_device* gbmDevice)
 
   eglQueryDevicesEXT(MAX_DEVICES, eglDevs, &numDevices);
 
-  //printf("Detected %d devices\n", numDevices);
-  
+  printf("Detected %d devices\n", numDevices);
+#endif  
   if (strstr(client_extensions, "EGL_EXT_platform_base"))
     {
 		ofLog() << "EGL_EXT_platform_base available\n";
@@ -788,7 +789,9 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 			ofLogError() << "DRM: failed to commit " << name << " property " << strerror(errno);
 		} else {
 			ofLog() << "DRM: property commit successful";
-		}       
+		}  
+
+		
 		drmModeAtomicFree(req);	
 		last_req = 0;
 	}
@@ -803,7 +806,6 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 	drmModeObjectPropertiesPtr proplist;
 	drmModePropertyPtr _prop;
 	bool found = false;
-//	int i;
 
 	proplist = drmModeObjectGetProperties(drm_fd, object_id, object_type);
 	for (uint32_t i = 0; i < proplist->count_props; i++) {
@@ -839,51 +841,33 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				for (int j = 0; j < _prop->count_enums; ++j) {;
 				ofLog() << "    {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
 				}	
-			
+			    ofLog() << name << "(enum): currently set to {"<< _prop->enums[_value].name << "} = " << _value;			
 				break;
 			case DRM_MODE_PROP_BITMASK:
 				ofLog() << name << ":";
 				for (int j = 0; j < _prop->count_enums; ++j) {;
 				ofLog() << "    enum {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
 				}
+				ofLog() << name << "(enum): currently set to " << _value;
 				break;
 			case DRM_MODE_PROP_OBJECT:
 				ofLog() << name << "(object): currently set to " << _prop->name << " = " << _value;
+				if (!_value) {
+						//		drmModeFreeProperty(_prop);
+					//break;
+				}
+				if (strcmp(_prop->name, "FB_ID") == 0) {
+				//	fb_info(drm_fd, value);
+				}
 				break;
 			case DRM_MODE_PROP_SIGNED_RANGE:
 				ofLog() << name << "(signed range): [" <<  static_cast<int32_t>(_prop->values[0]) << ".." << static_cast<int32_t>(_prop->values[1]) << "] currently set to = " <<  static_cast<int32_t>(_value);
 				break;
-			}
-
-			switch (type) {
-			case DRM_MODE_PROP_RANGE:
-	//			ofLog() << name << "(range): currently set to " << _value;
-			    break;
-			case DRM_MODE_PROP_ENUM:
-			    ofLog() << name << "(enum): currently set to {"<< _prop->enums[_value].name << "} = " << _value;
-			    break;
-			case DRM_MODE_PROP_BITMASK:
-			    ofLog() << _value;
-			    break;
-			case DRM_MODE_PROP_OBJECT:
-				if (!_value) {
-					break;
-				}
-		//	    ofLog() << _value;
-               
-				break;
 			case DRM_MODE_PROP_BLOB:
 				// TODO: base64-encode blob contents
 				ofLog() << name << "(blob): currently set to blob_id = " << _value;
-				break;
-			case DRM_MODE_PROP_SIGNED_RANGE:
-		//		ofLog() << static_cast<int32_t>(_value);
-				break;
-			}
-
-			switch (type) {
-			case DRM_MODE_PROP_BLOB:
 				if (!_value) {
+		//					drmModeFreeProperty(_prop);
 					break;
 				}
 				if (strcmp(_prop->name, "IN_FORMATS") == 0) {
@@ -900,21 +884,6 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 					//path_info(drm_fd, _value);
 				}
 				break;
-			case DRM_MODE_PROP_RANGE:
-				// This is a special case, as the SRC_* properties are
-				// in 16.16 fixed point
-	//			if (strncmp(_prop->name, "SRC_", 4) == 0) {
-	//				ofLog() << (_value >> 16);
-		//		}
-				break;
-			case DRM_MODE_PROP_OBJECT:
-				if (!_value) {
-					break;
-				}
-				if (strcmp(_prop->name, "FB_ID") == 0) {
-					//data_obj = fb_info(fd, value);
-				}
-				break;
 			}		
        		
 			if (prop_id)
@@ -923,12 +892,13 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				*value = proplist->prop_values[i];
 			if (prop)
 				*prop = _prop;
-			else
+		//	else
 				drmModeFreeProperty(_prop);
-
 			break;
 		}
+		drmModeFreeProperty(_prop);
 	}
+
 
 	drmModeFreeObjectProperties(proplist);
 	return found;
@@ -1159,7 +1129,7 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 		ret = HDR_TYPE_DOVI;
 	else 
 		ret = 0; 
-	
+ 
 	return ret;
 }
 
@@ -1346,11 +1316,12 @@ int foundHDR=0;
   
        		if (plane->possible_crtcs & (1 << crtc_index) && plane->plane_id != HDRplaneId && foundHDR) {
 			SDRplaneId = plane->plane_id;
+			drmModeFreePlane(plane);
 			break;
 
 		}	
 
-
+		drmModeFreePlane(plane);
 
 	
 	}
@@ -1394,9 +1365,6 @@ int foundHDR=0;
 	}
 
 
-		
-
-	drmModeFreePlane(plane);
 
 	drmModeFreePlaneResources(res);
     drmModeFreeEncoder(encoder);
@@ -1916,7 +1884,7 @@ void ofxRPI4Window::HDRWindowSetup()
         config = configs[config_index];
     }
         
-        
+    free(configs);        
         
  //       const EGLint contextAttribs[] = {
   //         EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -2161,7 +2129,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
     {
         config = configs[config_index];
     }
-        
+    free(configs);         
         
         
  //       const EGLint contextAttribs[] = {
@@ -2422,7 +2390,7 @@ int ret;
 		config = configs[config_index];
     }
         
-        
+    free(configs);    
         
  //       const EGLint contextAttribs[] = {
   //         EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -2556,13 +2524,13 @@ int ret;
 void ofxRPI4Window::makeCurrent()
 {
     eglMakeCurrent(display, surface, surface, context);
-    
+
 }
 
 void ofxRPI4Window::update()
 {
    // ofLog() << "update";
-
+//DestroyContext();
    if (current_bit_depth != bit_depth)
 		flip = 1;
 	if (colorspace_status != colorspace_on) 
@@ -2840,7 +2808,7 @@ void ofxRPI4Window::swapBuffers()
     }
     previousBo = bo;
     previousFb = fb->fb_id;
-    
+    delete(fb);
 }
 
 
@@ -3083,7 +3051,7 @@ last_req = 1;
 	} else {				
 
 		if (blob_id) {
-			drmModeDestroyPropertyBlob(device, blob_id);
+		//	drmModeDestroyPropertyBlob(device, blob_id);
 			blob_id = 0;
 		}
 
@@ -3192,7 +3160,6 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 		    ((int)currentWindowRect.width << 16), ((int)currentWindowRect.height << 16)))
 	{
 		ofLogError() << "DRM: -failed to enable plane";
-	
 	}
 
 }
@@ -3208,7 +3175,6 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 
 		if (!ok)
 			ofLogError() << "DRM: Unable to find CRTC_ID";
-				//	output_format = avi_infoframe.output_format;
 
 	
 	first_req = 1;
@@ -3313,12 +3279,12 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 
 
 
+
 }
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 {
 	bool ok;
 	int ret;
-	drmModePropertyBlobRes *blob;
 
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
@@ -3399,6 +3365,7 @@ last_req = 1;
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
 				prop_id /* in */, blob_id /* in */, prop /* in */);
 	}
+
 last_req = 0;
 }
  
@@ -3406,8 +3373,6 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) //
 {
 	bool ok;
 	int ret;
-	drmModePropertyBlobRes *blob;
-
 	
 	ok = drm_mode_get_property(device, connectorId,
 			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
@@ -3437,7 +3402,8 @@ first_req = 1;
 last_req = 1;
 	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
 			prop_id /* in */, blob_id /* in */, prop /* in */);
-	}  
+	} 
+	
 last_req = 0;
 }
 
@@ -3546,7 +3512,10 @@ last_req = 1;
 				prop_id /* in */, c_range /* in */, prop /* in */);
 			}
 
-	
+
+
+//	drmModeFreePlaneResources(res);
+
 last_req = 0;
 
 }
@@ -3677,7 +3646,7 @@ string ofxRPI4Window::getInfo()
 bool ofxRPI4Window::DestroyWindow()
 {
 
- // DestroyContext();
+  DestroyContext();
   DestroySurface();
 
   if (display != EGL_NO_DISPLAY)
