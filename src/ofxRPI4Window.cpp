@@ -2530,7 +2530,7 @@ void ofxRPI4Window::makeCurrent()
 void ofxRPI4Window::update()
 {
    // ofLog() << "update";
-//DestroyContext();
+
    if (current_bit_depth != bit_depth)
 		flip = 1;
 	if (colorspace_status != colorspace_on) 
@@ -2681,24 +2681,28 @@ static void drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
 	   int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
 	   drmModeRmFB(drm_fd, fb->fb_id);
 	}
-	free(fb);
+	delete fb;
 }
 
 drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 {
 	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
-  //{
-//	struct drm_fb *fb = static_cast<drm_fb*>(gbm_bo_get_user_data(bo));
+#if 0
+  {
+	struct drm_fb *fb = static_cast<drm_fb*>(gbm_bo_get_user_data(bo));
 
-  //  if(fb)
-  //  {
-   //   if (gbm_bo_get_format(bo) == fb->format)
- //       return fb;
-   //   else
-   //     drm_fb_destroy_callback(bo, gbm_bo_get_user_data(bo));
-  //  }
- // }
- struct drm_fb *fb = new drm_fb;
+   if(fb)
+    {
+      if (gbm_bo_get_format(bo) == fb->format)
+        return fb;
+      else
+        drm_fb_destroy_callback(bo, gbm_bo_get_user_data(bo));
+    }
+  }
+#endif 
+  struct drm_fb *fb = new drm_fb;
+  fb = new drm_fb;
+
   fb->bo = bo;
   fb->format = gbm_bo_get_format(bo);
 
@@ -2808,7 +2812,7 @@ void ofxRPI4Window::swapBuffers()
     }
     previousBo = bo;
     previousFb = fb->fb_id;
-    delete(fb);
+
 }
 
 
@@ -3159,7 +3163,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 		    crtc->width, crtc->height, 0, 0,
 		    ((int)currentWindowRect.width << 16), ((int)currentWindowRect.height << 16)))
 	{
-		ofLogError() << "DRM: -failed to enable plane";
+		ofLogError() << "DRM: -failed to enable plane " << strerror(errno) << "  " << errno;
 	}
 
 }
@@ -3645,16 +3649,15 @@ string ofxRPI4Window::getInfo()
  
 bool ofxRPI4Window::DestroyWindow()
 {
-
-  DestroyContext();
-  DestroySurface();
-
+    DestroySurface();
+	DestroyContext();
   if (display != EGL_NO_DISPLAY)
   {
    eglTerminate(display);
-   display = EGL_NO_DISPLAY;
+   display = EGL_NO_DISPLAY; 
   }
   gbmClean();
+
   ofLog() << "GBM: - deinitialized GBM";
   return true;
 }
@@ -3673,7 +3676,7 @@ void ofxRPI4Window::DestroySurface()
 {
   if (surface != EGL_NO_SURFACE)
   {
-  eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroySurface(display, surface);
     surface = EGL_NO_SURFACE;
   }
