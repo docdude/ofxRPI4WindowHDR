@@ -1795,6 +1795,7 @@ void ofxRPI4Window::HDRWindowSetup()
 
 		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : 0);
 	}
+	free(modifiers);
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ABGR2101010, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
@@ -2035,6 +2036,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 
 		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? modifiers[0] : 0);
 	}
+	free(modifiers);
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ABGR16161616F, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
@@ -2313,6 +2315,7 @@ int ret;
 
 		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << " and " << ((*modifiers >= 0) ? "modifier " : "no modifier ") << hex << ((*modifiers >= 0) ? *modifiers : 0);
 	}
+	free(modifiers);
 #else
     gbmSurface = gbm_surface_create(gbmDevice, mode.hdisplay, mode.vdisplay, GBM_FORMAT_ARGB8888 , GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
@@ -2325,6 +2328,7 @@ int ret;
 		ofLog() << "GBM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay;
 	}
 #endif	
+
 	display = gbm_get_display(gbmDevice);
     if (!display)
     {
@@ -2524,7 +2528,6 @@ int ret;
 void ofxRPI4Window::makeCurrent()
 {
     eglMakeCurrent(display, surface, surface, context);
-
 }
 
 void ofxRPI4Window::update()
@@ -2681,7 +2684,8 @@ static void drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
 	   int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
 	   drmModeRmFB(drm_fd, fb->fb_id);
 	}
-	delete fb;
+//	delete fb;
+	free(fb);
 }
 
 drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
@@ -2700,8 +2704,8 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
     }
   }
 #endif 
-  struct drm_fb *fb = new drm_fb;
-  fb = new drm_fb;
+  struct drm_fb *fb = static_cast<drm_fb*>(calloc(1, sizeof *fb)); 
+ // struct drm_fb *fb = new drm_fb;
 
   fb->bo = bo;
   fb->format = gbm_bo_get_format(bo);
@@ -2735,7 +2739,7 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 	  if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
   {
     flags |= DRM_MODE_FB_MODIFIERS;
-   printf("%s - using modifier: {:%llx}\n", __func__, modifiers[0]);
+   printf("%s - using modifier: {:%llx}\n", __func__, modifier[0]);
   }
 	
  int ret = drmModeAddFB2WithModifiers(drm_fd,
@@ -2766,13 +2770,15 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 
  if (ret < 0)
     {
-      delete (fb);
+//      delete fb;
+	  free(fb);
       ofLogError() << "DRM: - failed to add framebuffer " <<  strerror(errno) << "  " << errno;
       return nullptr;
     }
   }
 
-  gbm_bo_set_user_data(bo, fb, drm_fb_destroy_callback);
+//  gbm_bo_set_user_data(bo, fb, drm_fb_destroy_callback);
+  gbm_bo_set_user_data(bo, fb, NULL);
 
   return fb;
 }
@@ -2780,7 +2786,7 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 void ofxRPI4Window::swapBuffers()
 {
  //    ofLog() << __func__;
-  
+
     EGLBoolean success = eglSwapBuffers(display, surface);
     if(!success) {
         GLint error = eglGetError();
@@ -2791,7 +2797,6 @@ void ofxRPI4Window::swapBuffers()
 			ofLogError() << "GBM: Failed to lock frontbuffer";
 
 	}
-
 	struct drm_fb *fb = drm_fb_get_from_bo(bo);
 	if (!fb) {
 		ofLogError() << "DRM: Failed to get a new framebuffer BO";
@@ -2800,7 +2805,7 @@ void ofxRPI4Window::swapBuffers()
     		
   //  drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
      FlipPage(flip, fb->fb_id);
-     flip = false;  //change to flags 
+ //    flip = false;  //change to flags 
 					/* Allow a modeset change for the first commit only. */
 		//flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET);
 
@@ -2812,6 +2817,11 @@ void ofxRPI4Window::swapBuffers()
     }
     previousBo = bo;
     previousFb = fb->fb_id;
+	 	///if (flip) {
+		flip = false;
+		//delete fb;
+			free(fb);
+//	}
 
 }
 
@@ -3710,10 +3720,14 @@ void ofxRPI4Window::gbmClean()
         gbm_surface_release_buffer(gbmSurface, previousBo);
     }
 
-  if (gbmSurface != NULL)   
+  if (gbmSurface != NULL) { 
     gbm_surface_destroy(gbmSurface);
-  if (gbmDevice != NULL)
+	gbmSurface = NULL;
+  }
+  if (gbmDevice != NULL) {
     gbm_device_destroy(gbmDevice);
+	gbmDevice = NULL;
+  }
 }
 
 

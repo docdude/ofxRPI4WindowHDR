@@ -125,7 +125,7 @@ struct drm_hdr_metadata_infoframe {
 };
 
 struct drm_hdr_output_metadata {
-  uint32_t metadata_type;
+  uint8_t metadata_type;
   union {
     struct drm_hdr_metadata_infoframe hdmi_metadata_type1;
   };
@@ -141,14 +141,14 @@ struct dovi_output_metadata {
 	/**
 	 * @dv_status: DoVi status, active/not active
 	 */
-	uint32_t oui;
-	uint8_t dv_status;
-	uint8_t dv_interface; 
-	uint8_t backlight_metadata;
-	uint8_t backlight_max_luminance;
-	uint8_t aux_runmode;
-	uint8_t aux_version;
-	uint8_t aux_debug;
+	uint32_t oui = 0;
+	uint8_t dv_status = 0;
+	uint8_t dv_interface = 0; 
+	uint8_t backlight_metadata = 0;
+	uint8_t backlight_max_luminance = 0;
+	uint8_t aux_runmode = 0;
+	uint8_t aux_version = 0;
+	uint8_t aux_debug = 0;
 
 };
 
@@ -168,29 +168,29 @@ enum hdmi_eotf {
 
 struct drm_fb {
 	struct gbm_bo *bo = nullptr;
-	uint32_t fb_id;
-    uint32_t format;
+	uint32_t fb_id = 0;
+    uint32_t format = 0;
 };
 
 struct avi_infoframe {
-	int colorimetry;
-	int rgb_quant_range;
-    int max_bpc; 
-	int output_format;
-	int c_enc; 
-	int c_range;
+	int colorimetry = 0;
+	int rgb_quant_range = 0;
+    int max_bpc = 0; 
+	int output_format = 0;
+	int c_enc = 0; 
+	int c_range = 0;
 };
 
 struct DisplayChromacities
 {
-	double RedX;
-	double RedY;
-	double GreenX;
-	double GreenY;
-	double BlueX;
-	double BlueY;
-	double WhiteX;
-	double WhiteY;
+	double RedX = 0.0;
+	double RedY = 0.0;
+	double GreenX = 0.0;
+	double GreenY = 0.0;
+	double BlueX = 0.0;
+	double BlueY = 0.0;
+	double WhiteX = 0.0;
+	double WhiteY = 0.0;
 };
 
 static const DisplayChromacities DisplayChromacityList[] =
@@ -233,12 +233,12 @@ public:
     struct gbm_device* gbmDevice = nullptr;
     struct gbm_surface* gbmSurface = nullptr;
     drmModeCrtc *crtc;
-	int crtc_index;
-    uint32_t connectorId, HDRplaneId, SDRplaneId;
+	int crtc_index = 0;
+    uint32_t connectorId = 0, HDRplaneId = 0, SDRplaneId = 0;
 
-	uint64_t colorimetry, rgb_quant_range, max_bpc, output_format, c_enc, c_range, in_formats;
-	uint32_t prop_id;
-	uint64_t crtc_id, fb_id, blob_id;
+	uint64_t colorimetry = 0, rgb_quant_range = 0, max_bpc = 0, output_format = 0, c_enc = 0, c_range = 0, in_formats = 0;
+	uint32_t prop_id = 0;
+	uint64_t crtc_id = 0, fb_id = 0, blob_id = 0;
 	drmModePropertyPtr prop;
 	drmModeAtomicReq *req;
 	drmModePlaneRes *res;
@@ -253,13 +253,13 @@ public:
 		//	uint64_t output_format;
     gbm_bo *previousBo = NULL;
     uint32_t previousFb = 0;
-	uint32_t buffer_width, buffer_height;
+	uint32_t buffer_width = 0, buffer_height = 0;
     static ofShader shader;  
  //   static ofShader dovi_shader; 	
     ofRectangle currentWindowRect;
     ofOrientation orientation;
     bool bEnableSetupScreen;
-    int glesVersion;
+    int glesVersion = 0;
     ofWindowMode windowMode;
 
 
@@ -312,11 +312,11 @@ public:
 	static int bit_depth;
 	static int mode_idx;
 	static int dv_metadata;	
-	int current_bit_depth;
-	int initial_bit_depth;
-	int starting_bpc;
+	int current_bit_depth = 0;
+	int initial_bit_depth = 0;
+	int starting_bpc = 0;
 	static int colorspace_on;
-	int colorspace_status;
+	int colorspace_status = 0;
 	static int shader_init;
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
