@@ -720,20 +720,20 @@ gbm_get_display (gbm_device* gbmDevice)
 
 void
 ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
-			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */)
+			uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */, uint32_t flags)
 {
 	int success = 0;
     if (first_req) { req = drmModeAtomicAlloc(); first_req = 0;}
-    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;	
+//    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;	
 	uint64_t tmp_value;
 	
 	success = drmModeAtomicAddProperty(req, object_id, prop_id, value);						
 
 	if (success < 0) {
-		ofLogError() << "DRM: Unable to set " << name << " " << strerror(errno);
+		ofLogError() << "DRM: Unable to request " << name << " " << strerror(errno);
 	} else {
-					
-		uint32_t type = prop->flags &
+		uint32_t flags = prop->flags;			
+		uint32_t type = flags &
 		(DRM_MODE_PROP_LEGACY_TYPE | DRM_MODE_PROP_EXTENDED_TYPE);
 		
 
@@ -743,25 +743,25 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 			// in 16.16 fixed point
 			if (strncmp(prop->name, "SRC_", 4) == 0) {
 				tmp_value = value >> 16;
-				ofLog() << "DRM: Setting " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value << " (" << tmp_value << ")";
+				ofLog() << "DRM: atomic_request " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value << " (" << tmp_value << ")";
 			} else {
-				ofLog() << "DRM: Setting " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value;
+				ofLog() << "DRM: atomic_request " << name << "(range): [" <<  prop->values[0] << ".." << prop->values[1] << "] = " << value;
 			}
 			break;
 		case DRM_MODE_PROP_ENUM:
-			ofLog() << "DRM: Setting " << name << "(enum): {" << prop->enums[value].name << "} = " << prop->enums[value].value;
+			ofLog() << "DRM: atomic_request " << name << "(enum): {" << prop->enums[value].name << "} = " << prop->enums[value].value;
 			break;
 		case DRM_MODE_PROP_BITMASK:
 		    break;
 		case DRM_MODE_PROP_OBJECT:
-			ofLog() << "DRM: Setting " << name << "(object): " << prop->name << " = " << value;
+			ofLog() << "DRM: atomic_request " << name << "(object): " << prop->name << " = " << value;
 			break;
 		case DRM_MODE_PROP_SIGNED_RANGE:
-			ofLog() << "DRM: Setting " << name << "(signed range): [" <<  static_cast<int32_t>(prop->values[0]) << ".." << static_cast<int32_t>(prop->values[1]) << "] = " << static_cast<int32_t>(value);
+			ofLog() << "DRM: atomic_request " << name << "(signed range): [" <<  static_cast<int32_t>(prop->values[0]) << ".." << static_cast<int32_t>(prop->values[1]) << "] = " << static_cast<int32_t>(value);
 			break;
 
 		case DRM_MODE_PROP_BLOB:
-			ofLog() << "DRM: Setting " << name << "(blob): blob_id = " << value;
+			ofLog() << "DRM: atomic_request " << name << "(blob): blob_id = " << value;
 			if (!value) {
 				break;
 			}
@@ -781,14 +781,17 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 				//path_info(drm_fd, value);
 			}
 			break;
-		}		
+		}	
+
 	}
+	drmModeFreeProperty(prop);
+
 	if (last_req) {
 		success = drmModeAtomicCommit(drm_fd, req, flags, NULL);
 		if (success < 0) {
-			ofLogError() << "DRM: failed to commit " << name << " property " << strerror(errno);
+			ofLogError() << "DRM: atomic commit failed " << strerror(errno);
 		} else {
-			ofLog() << "DRM: property commit successful";
+			ofLog() << "DRM: atomic commit successful";
 		}  
 
 		
@@ -830,44 +833,42 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				// in 16.16 fixed point
 				if (strncmp(_prop->name, "SRC_", 4) == 0) {
 					tmp_value = _value >> 16;
-				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value << " (" << tmp_value << ")";
+				ofLog() << "DRM: " << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value << " (" << tmp_value << ")";
 
 				} else {
-				ofLog() << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value;
+				ofLog() << "DRM: " << name << ": range [" <<  _prop->values[0] << ".." << _prop->values[1] << "] currently set to = " << _value;
 				}
 				break;
 			case DRM_MODE_PROP_ENUM:
-				ofLog() << name << "(enum) values:";
+				ofLog() << "DRM: " << name << "(enum) values:";
 				for (int j = 0; j < _prop->count_enums; ++j) {;
 				ofLog() << "    {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
 				}	
-			    ofLog() << name << "(enum): currently set to {"<< _prop->enums[_value].name << "} = " << _value;			
+			    ofLog() << "DRM: " << name << "(enum): currently set to {"<< _prop->enums[_value].name << "} = " << _value;			
 				break;
 			case DRM_MODE_PROP_BITMASK:
-				ofLog() << name << ":";
+				ofLog() << "DRM: " << name << ":";
 				for (int j = 0; j < _prop->count_enums; ++j) {;
 				ofLog() << "    enum {" << _prop->enums[j].name << "} = " << _prop->enums[j].value;
 				}
-				ofLog() << name << "(enum): currently set to " << _value;
+				ofLog() << "DRM: " << name << "(enum): currently set to " << _value;
 				break;
 			case DRM_MODE_PROP_OBJECT:
-				ofLog() << name << "(object): currently set to " << _prop->name << " = " << _value;
+				ofLog() << "DRM: " << name << "(object): currently set to " << _prop->name << " = " << _value;
 				if (!_value) {
-						//		drmModeFreeProperty(_prop);
-					//break;
+					break;
 				}
 				if (strcmp(_prop->name, "FB_ID") == 0) {
 				//	fb_info(drm_fd, value);
 				}
 				break;
 			case DRM_MODE_PROP_SIGNED_RANGE:
-				ofLog() << name << "(signed range): [" <<  static_cast<int32_t>(_prop->values[0]) << ".." << static_cast<int32_t>(_prop->values[1]) << "] currently set to = " <<  static_cast<int32_t>(_value);
+				ofLog() << "DRM: " << name << "(signed range): [" <<  static_cast<int32_t>(_prop->values[0]) << ".." << static_cast<int32_t>(_prop->values[1]) << "] currently set to = " <<  static_cast<int32_t>(_value);
 				break;
 			case DRM_MODE_PROP_BLOB:
 				// TODO: base64-encode blob contents
-				ofLog() << name << "(blob): currently set to blob_id = " << _value;
+				ofLog() << "DRM: " << name << "(blob): currently set to blob_id = " << _value;
 				if (!_value) {
-		//					drmModeFreeProperty(_prop);
 					break;
 				}
 				if (strcmp(_prop->name, "IN_FORMATS") == 0) {
@@ -892,11 +893,11 @@ ofxRPI4Window::drm_mode_get_property(int drm_fd, uint32_t object_id, uint32_t ob
 				*value = proplist->prop_values[i];
 			if (prop)
 				*prop = _prop;
-		//	else
+		    else
 				drmModeFreeProperty(_prop);
 			break;
 		}
-		drmModeFreeProperty(_prop);
+	if (prop) drmModeFreeProperty(_prop);
 	}
 
 
@@ -1084,9 +1085,7 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 	bool supportsHDR = false;
 	bool supportsDoVi = false;
 	
-	ok = drm_mode_get_property(fd, connector_id,
-			DRM_MODE_OBJECT_CONNECTOR, "EDID",
-			NULL, &edid_blob_id, NULL);
+	ok = drm_mode_get_property(fd, connector_id, DRM_MODE_OBJECT_CONNECTOR, "EDID",	NULL, &edid_blob_id, NULL);
 
 	if (!ok || !edid_blob_id)
 		return ret;
@@ -1401,14 +1400,14 @@ void ofxRPI4Window::FindModifiers(uint32_t format, uint32_t plane_id)
 			break;
 		} 
 	}
-	ok = drm_mode_get_property(device, plane_id, 
-			DRM_MODE_OBJECT_PLANE, "IN_FORMATS",
-			NULL, &in_formats, NULL);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "IN_FORMATS", NULL, &in_formats, &prop);
 	if (!ok) 
 		ofLogError() << "DRM: Unable to find IN_FORMATS";	
 	
-	get_format_modifiers(device, in_formats, format_index);		
+	get_format_modifiers(device, in_formats, format_index);	
 	
+	drmModeFreeProperty(prop);
+
 	drmModeFreePlane(plane);
 	
 }	
@@ -2361,7 +2360,7 @@ int ret;
         EGL_BLUE_SIZE, 8,
         EGL_DEPTH_SIZE, 16,
 		EGL_ALPHA_SIZE, 8,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
         EGL_NONE
 	};
 	EGLint visualId = GBM_FORMAT_ARGB8888;
@@ -2673,6 +2672,10 @@ glm::vec2 ofxRPI4Window::getWindowPosition(){
     return glm::vec2(currentWindowRect.getPosition());
 }
 
+static void on_pageflip_event(int fd, unsigned int frame, unsigned int sec,	unsigned int usec, void *userdata) 
+{
+	ofLog() << "DRM: page flip event ocurred: " << /*%12.6f\n",*/ std::fixed  << std::setprecision(6) << sec + (usec / 1000000.0);
+}
 
 
 static void drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
@@ -2697,10 +2700,10 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 
    if(fb)
     {
-      if (gbm_bo_get_format(bo) == fb->format)
+   //   if (gbm_bo_get_format(bo) == fb->format)
         return fb;
-      else
-        drm_fb_destroy_callback(bo, gbm_bo_get_user_data(bo));
+   //   else
+    //    drm_fb_destroy_callback(bo, gbm_bo_get_user_data(bo));
     }
   }
 #endif 
@@ -2732,6 +2735,7 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
   handles[0] = gbm_bo_get_handle(bo).u32;
   strides[0] = gbm_bo_get_stride(bo);
   memset(offsets, 0, 16);
+
 #endif
 
   uint32_t flags = 0;
@@ -2777,7 +2781,7 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
     }
   }
 
-//  gbm_bo_set_user_data(bo, fb, drm_fb_destroy_callback);
+// gbm_bo_set_user_data(bo, fb, drm_fb_destroy_callback);
   gbm_bo_set_user_data(bo, fb, NULL);
 
   return fb;
@@ -2786,7 +2790,11 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 void ofxRPI4Window::swapBuffers()
 {
  //    ofLog() << __func__;
-
+    drmEventContext evctx   = {0};
+    evctx.version           = DRM_EVENT_CONTEXT_VERSION;
+    evctx.page_flip_handler = on_pageflip_event;
+   
+	setVerticalSync(true);
     EGLBoolean success = eglSwapBuffers(display, surface);
     if(!success) {
         GLint error = eglGetError();
@@ -2802,12 +2810,27 @@ void ofxRPI4Window::swapBuffers()
 		ofLogError() << "DRM: Failed to get a new framebuffer BO";
 	}
 
-    		
-  //  drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
+
+		
+ //  drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
      FlipPage(flip, fb->fb_id);
- //    flip = false;  //change to flags 
+     flip = false;  //change to flags 
 					/* Allow a modeset change for the first commit only. */
 		//flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET);
+#if 0
+	int waiting_for_flip = 1;
+	drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
+	int	ret = drmModePageFlip(device, crtc->crtc_id, fb->fb_id, DRM_MODE_PAGE_FLIP_ASYNC, &waiting_for_flip);
+	if (ret) {
+		ofLogError() << "DRM: failed to queue page flip: " << strerror(errno);
+
+	}
+#endif
+	int ret = drmHandleEvent(device, &evctx);
+	if (ret) {
+		ofLogError() << "DRM: Failed to wait for page flip completion";
+		
+	}
 
     if (previousBo)
     {
@@ -2817,11 +2840,11 @@ void ofxRPI4Window::swapBuffers()
     }
     previousBo = bo;
     previousFb = fb->fb_id;
-	 	///if (flip) {
-		flip = false;
-		//delete fb;
-			free(fb);
-//	}
+
+//	flip = false;
+	//delete fb;
+	free(fb);
+
 
 }
 
@@ -2829,7 +2852,7 @@ void ofxRPI4Window::swapBuffers()
 void ofxRPI4Window::startRender()
 {
    //ofLog() << __func__;
-    glEnable(GL_DEPTH_TEST);
+//    glEnable(GL_DEPTH_TEST);
 
     renderer()->startRender();
 }
@@ -2984,97 +3007,73 @@ return frame_buffer_id;
 
 void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 {
-  bool ok;
-  //disable CRTC
- 			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_ID",
-					&prop_id, NULL, &prop);
+	bool ok;
+    //disable CRTC
+ 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &prop_id, NULL, &prop);
 	first_req = 1;
- 	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, plane_id/* in */,
-					prop_id /* in */, 0 /* in */, prop /* in */);
+ 	drm_mode_atomic_set_property(device, req, "CRTC_ID" , plane_id,	prop_id, 0, prop, 0);
+	
+    //disable FB_ID					
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id , 0, prop, 0);  //value can also be crtc->buffer_id ** FB id to connect to
 					
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "FB_ID",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "FB_ID" /* in */, plane_id/* in */,
-					prop_id /* in */, 0/* in */, prop /* in */);  //value can also be crtc->buffer_id ** FB id to connect to
-					
-  //disable Colorimetry, set to default
+    //set Colorimetry, set to default
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorimetry", &prop_id, &colorimetry, &prop);
 
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "Colorimetry",
-				&prop_id, &colorimetry, &prop);
-
-		if (!ok || !(colorimetry >= 0)) {
+	if (!ok || !(colorimetry >= 0)) {
 			ofLogError() << "Unable to find Colorimetry";
-		} else {
-		    /* set colorimetry to Default = 0 */
-			colorimetry = 0; 
+	} else {
+	    /* set colorimetry to Default = 0 */
+		colorimetry = 0; 
+		drm_mode_atomic_set_property(device, req, "Colorimetry", connectorId, prop_id, colorimetry, prop, 0);
+    }	
+	//set rgb_quant_range, set to full as default
+	ok = drm_mode_get_property(device, connectorId, DRM_MODE_OBJECT_CONNECTOR, "rgb quant range", &prop_id, &rgb_quant_range, &prop);
 
-			drm_mode_atomic_set_property(device, req, "Colorimetry" /* in */, connectorId/* in */,
-					prop_id /* in */, colorimetry /* in */, prop /* in */);
-
-        }	
-
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "rgb quant range",
-				&prop_id, &rgb_quant_range, &prop);
-
-		if (!ok || !(rgb_quant_range >=0)) { 
-			ofLogError() << "DRM: Unable to find RGB Quant Range";
-		} else {
+	if (!ok || !(rgb_quant_range >=0)) { 
+		ofLogError() << "DRM: Unable to find RGB Quant Range";
+	} else {
 		
-			rgb_quant_range = 2; //set to full as default
+		rgb_quant_range = 2; //set to full as default
+		drm_mode_atomic_set_property(device, req, "rgb quant range" , connectorId, prop_id, rgb_quant_range, prop, 0);
+	}		
 
-		drm_mode_atomic_set_property(device, req, "rgb quant range" /* in */, connectorId/* in */,
-			prop_id /* in */, rgb_quant_range /* in */, prop /* in */);
-		}		
-	int ret;
-
-  //disable HDR Metadata
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
+    //disable HDR Metadata
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
+	
 	if (!ok || !blob_id) {
 		ofLogError() << "Unable to find or HDR_OUTPUT_METADATA not set";
 		blob_id = 0; //set to 0 to be sure property is disabled
-		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-				prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, 0);
 	} else {
 
 		if (blob_id) {
-		//	drmModeDestroyPropertyBlob(device, blob_id);
+			drmModeDestroyPropertyBlob(device, blob_id);
 			blob_id = 0;
-
 		}
-
-		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-				prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, 0);
 	}
-			
-  //disable DOVI Metadata
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
-last_req = 1;
+
+	last_req = 1; //final atomic request, set to commit all prior requests
+	
+    //disable DOVI Metadata
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
+
 	if (!ok || !blob_id) {
 		ofLogError() << "Unable to find or DOVI_OUTPUT_METADATA not set";
 		blob_id = 0; //set to 0 to be sure property is disabled
-		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
-				prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	} else {				
 
 		if (blob_id) {
-		//	drmModeDestroyPropertyBlob(device, blob_id);
+			drmModeDestroyPropertyBlob(device, blob_id);
 			blob_id = 0;
 		}
-
-		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
-				prop_id /* in */, blob_id /* in */, prop /* in */);
+		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId,	prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
 		
-last_req = 0;
+	last_req = 0; //reset to allow new atomic requests without committin
 }
 
 int ofxRPI4Window::SetPlaneId()
@@ -3097,12 +3096,12 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 	/***************************************************************/
 
 	if (flip) { 
+		// disable plane when working layer no longer is active, do this at window change/flip	
+		DisablePlane(SDRplaneId);
+		DisablePlane(HDRplaneId);
 		if (isHDR && !isDoVi && !is_std_DoVi)
 		{  
-			// disable plane when working layer no longer is active
-			DisablePlane(SDRplaneId);
-			DisablePlane(HDRplaneId);
-			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
+
 			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe
  
 			updateHDR_Infoframe(ofxRPI4Window::eotf, hdr_primaries);// Display Gamut P3D65
@@ -3117,12 +3116,9 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			avi_infoframe.c_enc = avi_info.c_enc; //ITU-R BT.2020 YCbCr set to 2
 			avi_infoframe.c_range = 1; //YCbCr Full range 
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	  
-#if 1 
+
 		} else if (isHDR && isDoVi && !is_std_DoVi) {
-			DisablePlane(SDRplaneId);
-			DisablePlane(HDRplaneId);
-			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
-					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
+
 			updateDoVi_Infoframe(1, 2); // Enable LLDV DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = 9; //BT2020_YCC or BT2020_RGB??
@@ -3132,13 +3128,9 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr
 			avi_infoframe.c_range = 1; //YCbCr full range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
-#endif 
-#if 1  
+
 		} else if (isHDR && isDoVi && is_std_DoVi) {
-			DisablePlane(SDRplaneId);
-			DisablePlane(HDRplaneId);
-			SetActivePlane(HDRplaneId, currentWindowRect, fb_id);
-					//	updateHDR_Infoframe(HDMI_EOTF_SMPTE_ST2084, 2); // Display Gamut P3D65
+
 			updateDoVi_Infoframe(1, 1); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = avi_info.colorimetry; //Default
@@ -3148,11 +3140,9 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr 
 			avi_infoframe.c_range = 1; //YCbCr Full Range
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
-#endif
+
 		} else {
-			DisablePlane(SDRplaneId);
-			DisablePlane(HDRplaneId);
-			SetActivePlane(SDRplaneId, currentWindowRect, fb_id);
+
 			updateDoVi_Infoframe(0, 0); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
@@ -3167,142 +3157,106 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 		
 
 	}
+	
+	SetActivePlane(SetPlaneId(), currentWindowRect, fb_id);
 
+/*
 	if (drmModeSetPlane(device, SetPlaneId(), crtc->crtc_id,
-		    fb_id, 0, crtc->x, crtc->y,
+		    fb_id, DRM_MODE_PAGE_FLIP_ASYNC |DRM_MODE_ATOMIC_NONBLOCK, crtc->x, crtc->y,
 		    crtc->width, crtc->height, 0, 0,
 		    ((int)currentWindowRect.width << 16), ((int)currentWindowRect.height << 16)))
 	{
 		ofLogError() << "DRM: -failed to enable plane " << strerror(errno) << "  " << errno;
 	}
-
+*/
 }
 
 void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id)
 {
 	bool ok;
     uint64_t blob_id;
-	// set connector CRTC property
- 		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID",
-				&prop_id, NULL, &prop);
+	first_req = 1;
+
+	// at window change/update allow modesetting of CRTC to make active 
+	if (flip) {
+		// set connector CRTC_ID
+ 		ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", &prop_id, NULL, &prop);
 
 		if (!ok)
 			ofLogError() << "DRM: Unable to find CRTC_ID";
 
-	
-	first_req = 1;
-	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, connectorId/* in */,
-			prop_id /* in */, crtc->crtc_id /* in */, prop /* in */);	
-    //set CRTC mode 			
-		ok = drm_mode_get_property(device, crtc->crtc_id,
-				DRM_MODE_OBJECT_CRTC, "MODE_ID",
-				&prop_id, &blob_id, &prop);
+		drm_mode_atomic_set_property(device, req, "CRTC_ID" , connectorId,	prop_id, crtc->crtc_id, prop, 0);
+		
+		//set CRTC mode 			
+		ok = drm_mode_get_property(device, crtc->crtc_id, DRM_MODE_OBJECT_CRTC, "MODE_ID", &prop_id, &blob_id, &prop);
 
 		if (!ok || !blob_id)
 			ofLogError() << "DRM: Unable to find MODE_ID";
-	if (blob_id)
-      drmModeDestroyPropertyBlob(device, blob_id);
-    blob_id = 0;
+		if (blob_id)
+			drmModeDestroyPropertyBlob(device, blob_id);
+		blob_id = 0;
 
-	drmModeCreatePropertyBlob(device, &mode, sizeof(mode),
-					      (uint32_t*)&blob_id);	
-						  
-	drm_mode_atomic_set_property(device, req, "MODE_ID" /* in */, crtc->crtc_id/* in */,
-			prop_id /* in */, blob_id /* in */, prop /* in */);
-	//set CRTC as Active		
-		ok = drm_mode_get_property(device, crtc->crtc_id,
-				DRM_MODE_OBJECT_CRTC, "ACTIVE",
-				&prop_id, NULL, &prop);
+		drmModeCreatePropertyBlob(device, &mode, sizeof(mode), (uint32_t*)&blob_id);						  
+		drm_mode_atomic_set_property(device, req, "MODE_ID", crtc->crtc_id, prop_id, blob_id, prop, 0);
+		
+		//set CRTC as Active		
+		ok = drm_mode_get_property(device, crtc->crtc_id, DRM_MODE_OBJECT_CRTC, "ACTIVE", &prop_id, NULL, &prop);
 
 		if (!ok)
 			ofLogError() << "DRM: Unable to find ACTIVE";
 
-
-	drm_mode_atomic_set_property(device, req, "ACTIVE" /* in */, crtc->crtc_id/* in */,
-			prop_id /* in */, 1 /* in */, prop /* in */);
-
+		drm_mode_atomic_set_property(device, req, "ACTIVE", crtc->crtc_id,	prop_id, 1, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
+	}
 	//set CRTC dimenstions to match mode and plane
-			crtc->x = static_cast<int32_t>(currentWindowRect.x);
-			crtc->y = static_cast<int32_t>(currentWindowRect.y);
-			crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
-			crtc->height = ((static_cast<uint32_t>(currentWindowRect.height) + 1) & ~1);
+	crtc->x = static_cast<int32_t>(currentWindowRect.x);
+	crtc->y = static_cast<int32_t>(currentWindowRect.y);
+	crtc->width = ((static_cast<uint32_t>(currentWindowRect.width) + 1) & ~1);
+	crtc->height = ((static_cast<uint32_t>(currentWindowRect.height) + 1) & ~1);
 			
 	//set plane parameters 
+//	flags |= DRM_MODE_PAGE_FLIP_EVENT  | DRM_MODE_ATOMIC_NONBLOCK; //set flags to handle atomic page flip event
 
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_ID",
-					&prop_id, NULL, &prop);
-
-	drm_mode_atomic_set_property(device, req, "CRTC_ID" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->crtc_id /* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id, fb_id, prop, 0);  //value can also be crtc->buffer_id ** FB id to connect to			
 					
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "FB_ID",
-					&prop_id, NULL, &prop);
-
-	drm_mode_atomic_set_property(device, req, "FB_ID" /* in */, plane_id/* in */,
-					prop_id /* in */, fb_id /* in */, prop /* in */);  //value can also be crtc->buffer_id ** FB id to connect to					
-
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "SRC_X",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "SRC_X" /* in */, plane_id/* in */,
-					prop_id /* in */, 0 /* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "CRTC_ID", plane_id, prop_id, crtc->crtc_id, prop, 0);
+					
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_X", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "SRC_X", plane_id, prop_id, 0, prop, 0);
  
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "SRC_Y",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "SRC_Y" /* in */, plane_id/* in */,
-					prop_id /* in */, 0 /* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_Y", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "SRC_Y", plane_id, prop_id, 0 , prop, 0);
 
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "SRC_W",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "SRC_W" /* in */, plane_id/* in */,
-					prop_id /* in */, buffer_width << 16 /* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_W", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "SRC_W", plane_id, prop_id, buffer_width << 16, prop, 0);
 
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "SRC_H",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "SRC_H" /* in */, plane_id/* in */,
-					prop_id /* in */, buffer_height << 16/* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_H", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "SRC_H", plane_id, prop_id, buffer_height << 16, prop, 0);
 
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_X",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "CRTC_X" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->x /* in */, prop /* in */);
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_Y",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "CRTC_Y" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->y /* in */, prop /* in */);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_X", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "CRTC_X", plane_id, prop_id, crtc->x, prop, 0);
+	
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_Y", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "CRTC_Y", plane_id, prop_id, crtc->y, prop, 0);
 
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_W",
-					&prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "CRTC_W" /* in */, plane_id/* in */,
-					prop_id /* in */,crtc->width  /* in */, prop /* in */);
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "CRTC_H",
-					&prop_id, NULL, &prop);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_W", &prop_id, NULL, &prop);
+	drm_mode_atomic_set_property(device, req, "CRTC_W", plane_id, prop_id, crtc->width, prop, 0);
+	
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_H", &prop_id, NULL, &prop);
+	
 	last_req = 1;
-	drm_mode_atomic_set_property(device, req, "CRTC_H" /* in */, plane_id/* in */,
-					prop_id /* in */, crtc->height /* in */, prop /* in */);
+	drm_mode_atomic_set_property(device, req, "CRTC_H", plane_id, prop_id, crtc->height, prop, DRM_MODE_ATOMIC_ALLOW_MODESET | DRM_MODE_PAGE_FLIP_EVENT  | DRM_MODE_ATOMIC_NONBLOCK);
 
-
+//	flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET); //allow modesetting for first commit only of plane properties
 
 
 }
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 {
 	bool ok;
-	int ret;
-
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
+/*
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
 	if (!ok) {
 		ofLogError() << "Unable to find DOVI_OUTPUT_METADATA";
 	} else {
@@ -3311,9 +3265,8 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 			blob_id = 0;
 		}
 	}
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
+*/
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
 	if (!ok) {
 		ofLogError() << "Unable to find HDR_OUTPUT_METADATA";
 
@@ -3364,33 +3317,20 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 		}
 			
 		drmModeCreatePropertyBlob(device, &meta, sizeof(meta), (uint32_t*)&blob_id); 
-			
-	
-#if 0
-	ret = drmModeConnectorSetProperty(
-		device,
-		connectorId,
-		prop_id, blob_id );
-
-#endif
-
-first_req = 1;
-last_req = 1;
-		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA" /* in */, connectorId/* in */,
-				prop_id /* in */, blob_id /* in */, prop /* in */);
+		first_req = 1; // allocate for atomic requests
+		last_req = 1; // commit previous atomic requests	
+		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
-last_req = 0;
+	last_req = 0;
 }
  
-void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) //
+void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) 
 {
 	bool ok;
-	int ret;
 	
-	ok = drm_mode_get_property(device, connectorId,
-			DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA",
-			&prop_id, &blob_id, &prop);
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
+	
 	if (!ok) {
 		ofLogError() << "Unable to find DOVI_OUTPUT_METADATA";
 	} else {
@@ -3412,126 +3352,83 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) //
 		dovi.aux_version = 0;
 		dovi.aux_debug = 0;
 		drmModeCreatePropertyBlob(device, &dovi, sizeof(dovi), (uint32_t*)&blob_id); 
-first_req = 1;
-last_req = 1;
-	drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA" /* in */, connectorId/* in */,
-			prop_id /* in */, blob_id /* in */, prop /* in */);
+		first_req = 1; // allocate for atomic requests
+		last_req = 1; // commit previous atomic requests	
+		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	} 
-	
-last_req = 0;
+	drmModeFreeProperty(prop);
+
+	last_req = 0;
 }
 
 void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
 {
 	bool ok;
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "Colorimetry",
-				&prop_id, &colorimetry, &prop);
-first_req = 1; 
-		if (!ok || !(colorimetry >= 0)) {
-			ofLogError() << "Unable to find Colorspace";
-		} else {
-		    /* set colorimtery */
-			colorimetry = avi_infoframe.colorimetry; 
+	first_req = 1; // allocate for atomic requests
+	
+	/* set colorimtery */	
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorimetry", &prop_id, &colorimetry, &prop);
+	
+	if (!ok || !(colorimetry >= 0)) {
+		ofLogError() << "Unable to find Colorspace";
+	} else {
+		colorimetry = avi_infoframe.colorimetry; 
+		drm_mode_atomic_set_property(device, req, "Colorimetry" , connectorId,	prop_id, colorimetry, prop, 0);
+    }			
+	
+	/* set output format */
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "output format",	&prop_id, &output_format, &prop);
 
-	drm_mode_atomic_set_property(device, req, "Colorimetry" /* in */, connectorId/* in */,
-			prop_id /* in */, colorimetry /* in */, prop /* in */);
-
-        }			
-			
-
-
-
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "output format",
-				&prop_id, &output_format, &prop);
-
-		if (!ok || !(output_format >=0)) {
-			ofLogError() << "DRM: Unable to find OUTPUT FORMAT";
-		} else {
-			output_format = avi_infoframe.output_format;
-
-			drm_mode_atomic_set_property(device, req, "output format" /* in */, connectorId/* in */,
-					prop_id /* in */, output_format /* in */, prop /* in */);
-		}
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "max bpc",
-				&prop_id, &max_bpc, &prop);
-
-		if (!ok || !max_bpc) {
-			ofLogError() << "DRM: Unable to find MAX_BPC";
-		} else {
-		
-			max_bpc = avi_infoframe.max_bpc;
-
-		drm_mode_atomic_set_property(device, req, "max bpc" /* in */, connectorId/* in */,
-			prop_id /* in */, max_bpc /* in */, prop /* in */);
-		}
-		ok = drm_mode_get_property(device, connectorId,
-				DRM_MODE_OBJECT_CONNECTOR, "rgb quant range",
-				&prop_id, &rgb_quant_range, &prop);
-
-		if (!ok || !(rgb_quant_range >=0)) { 
-			ofLogError() << "DRM: Unable to find RGB Quant Range";
-		} else {
-		
-			rgb_quant_range = avi_infoframe.rgb_quant_range;
-
-		drm_mode_atomic_set_property(device, req, "rgb quant range" /* in */, connectorId/* in */,
-			prop_id /* in */, rgb_quant_range /* in */, prop /* in */);
-		}	
-
-			
-#if 0
-
-    res	= drmModeGetPlaneResources(device);
-	if (!res) {
-		ofLogError() << "DRM: Unable to get drmModeGetPlaneResources";
-	//	return NULL;
+	if (!ok || !(output_format >=0)) {
+		ofLogError() << "DRM: Unable to find OUTPUT FORMAT";
+	} else {
+		output_format = avi_infoframe.output_format;
+		drm_mode_atomic_set_property(device, req, "output format" , connectorId, prop_id, output_format, prop, 0);
 	}
 
-	for (uint32_t i = 0; i < res->count_planes; i++) {
-		plane = drmModeGetPlane(device, res->planes[i]);
-		if (!plane) {
-			ofLogError() << "DRM: Unable to get drmModeGetPlane";
-			continue;
-		}
+	/* set max_bpc */	
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "max bpc", &prop_id, &max_bpc, &prop);
 
+	if (!ok || !max_bpc) {
+		ofLogError() << "DRM: Unable to find MAX_BPC";
+	} else {
+		max_bpc = avi_infoframe.max_bpc;
+		drm_mode_atomic_set_property(device, req, "max bpc" , connectorId,	prop_id, max_bpc, prop, 0);
+	}
+	
+	/* set rgb quant range */
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "rgb quant range", &prop_id, &rgb_quant_range, &prop);
 
-	if (plane->possible_crtcs & (1 << crtc_index)) {
-#endif 		    /* set COLOR_ENCODING plane property */
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING",
-					&prop_id, &c_enc, &prop);
+	if (!ok || !(rgb_quant_range >=0)) { 
+		ofLogError() << "DRM: Unable to find RGB Quant Range";
+	} else {	
+		rgb_quant_range = avi_infoframe.rgb_quant_range;
+		drm_mode_atomic_set_property(device, req, "rgb quant range", connectorId, prop_id, rgb_quant_range, prop, 0);
+	}	
 
-			if (!ok || !(c_enc >= 0)) {
-				ofLogError() << "DRM: Unable find COLOR_ENCODING";
-			} else {
-				c_enc = avi_infoframe.c_enc; //set to ITU-R BT.601 YCbCr or ITU-R BT.709 YCbCr or ITU-R BT.2020 YCbCr
+    /* set COLOR_ENCODING plane property, for multi-plane formats, does nothing for single plane formats*/
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", &prop_id, &c_enc, &prop);
 
-				drm_mode_atomic_set_property(device, req, "COLOR_ENCODING" /* in */, plane_id/* in */,
-					prop_id /* in */, c_enc /* in */, prop /* in */);
-			}
-			/* set COLOR_RANGE plane property */
-			ok = drm_mode_get_property(device, plane_id,
-					DRM_MODE_OBJECT_PLANE, "COLOR_RANGE",
-					&prop_id, &c_range, &prop);
-last_req = 1;
-			if (!ok || !(c_range >= 0)) {
-				ofLogError() << "DRM: Unable find COLOR_RANGE";
-			} else {
-				c_range = avi_infoframe.c_range; //set to YCbCr full range	
+	if (!ok || !(c_enc >= 0)) {
+		ofLogError() << "DRM: Unable find COLOR_ENCODING";
+	} else {
+		c_enc = avi_infoframe.c_enc; //set to ITU-R BT.601 YCbCr or ITU-R BT.709 YCbCr or ITU-R BT.2020 YCbCr
+		drm_mode_atomic_set_property(device, req, "COLOR_ENCODING", plane_id, prop_id, c_enc, prop, 0);
+	}
 
-				drm_mode_atomic_set_property(device, req, "COLOR_RANGE" /* in */, plane_id/* in */,
-				prop_id /* in */, c_range /* in */, prop /* in */);
-			}
+	last_req = 1; // commit previous atomic requests	
+	
+	/* set COLOR_RANGE plane property */
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_RANGE", &prop_id, &c_range, &prop);
 
+	if (!ok || !(c_range >= 0)) {
+		ofLogError() << "DRM: Unable find COLOR_RANGE";
+	} else {
+		c_range = avi_infoframe.c_range; //set to YCbCr full range	
+		drm_mode_atomic_set_property(device, req, "COLOR_RANGE", plane_id, prop_id, c_range, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
+	}
 
-
-//	drmModeFreePlaneResources(res);
-
-last_req = 0;
-
+	last_req = 0;
 }
 
 void ofxRPI4Window::draw()
@@ -3698,25 +3595,25 @@ void ofxRPI4Window::gbmClean()
     drmModeSetCrtc(device, crtc->crtc_id, crtc->buffer_id, crtc->x, crtc->y, &connectorId, 1, &crtc->mode);
     drmModeFreeCrtc(crtc);
 
-	drm_mode_atomic_set_property(device, req, "max bpc" /* in */, connectorId/* in */,
-			property_id.max_bpc /* in */, 8 /* in */, prop /* in */);    
+	drm_mode_atomic_set_property(device, req, "max bpc" , connectorId,
+			property_id.max_bpc , 8 , prop );    
 
-	drm_mode_atomic_set_property(device, req, "Colorimetry" /* in */, connectorId/* in */,
-			property_id.colorimetry /* in */, 0 /* in */, prop /* in */);
+	drm_mode_atomic_set_property(device, req, "Colorimetry" , connectorId,
+			property_id.colorimetry , 0 , prop );
 
-	drm_mode_atomic_set_property(device, req, "output format" /* in */, connectorId/* in */,
-			property_id.output_format /* in */, 0 /* in */, prop /* in */);
+	drm_mode_atomic_set_property(device, req, "output format" , connectorId,
+			property_id.output_format , 0 , prop );
 			
 
-	drm_mode_atomic_set_property(device, req, "COLOR_ENCODING" /* in */, plane->plane_id/* in */,
-			property_id.c_enc /* in */, 0 /* in */, prop /* in */);
+	drm_mode_atomic_set_property(device, req, "COLOR_ENCODING" , plane->plane_id,
+			property_id.c_enc , 0 , prop );
 
-	drm_mode_atomic_set_property(device, req, "COLOR_RANGE" /* in */, plane->plane_id/* in */,
-			property_id.c_range /* in */, 0 /* in */, prop /* in */);
+	drm_mode_atomic_set_property(device, req, "COLOR_RANGE" , plane->plane_id,
+			property_id.c_range , 0 , prop );
 #endif			
     if (previousBo)
     {
-        drmModeRmFB(device, previousFb);
+    //    drmModeRmFB(device, previousFb);
         gbm_surface_release_buffer(gbmSurface, previousBo);
     }
 

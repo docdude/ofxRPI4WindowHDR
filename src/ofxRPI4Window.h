@@ -248,7 +248,7 @@ public:
 	avi_infoframe property_id;
 	static struct drm_hdr_output_metadata hdr_metadata;
 	static avi_infoframe avi_info;
-	uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_ATOMIC_ALLOW_MODESET;
+//	uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
 		//	uint64_t output_format;
     gbm_bo *previousBo = NULL;
@@ -294,7 +294,7 @@ public:
 							   uint64_t *value /* out */, drmModePropertyPtr *prop /* out */);
 							   
 	void drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, const char *name /* in */, uint32_t object_id /* in */,
-									  uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */);
+									  uint32_t prop_id /* in */, uint64_t value /* in */, drmModePropertyPtr prop /* in */, uint32_t flags);
 	int last_req = 0;
 	int first_req = 0;
 	bool flip = true;
