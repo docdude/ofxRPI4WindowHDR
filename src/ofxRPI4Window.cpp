@@ -2794,7 +2794,7 @@ void ofxRPI4Window::swapBuffers()
     evctx.version           = DRM_EVENT_CONTEXT_VERSION;
     evctx.page_flip_handler = on_pageflip_event;
    
-	setVerticalSync(true);
+	setVerticalSync(false);
     EGLBoolean success = eglSwapBuffers(display, surface);
     if(!success) {
         GLint error = eglGetError();
