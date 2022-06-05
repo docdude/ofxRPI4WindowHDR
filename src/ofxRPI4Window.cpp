@@ -358,7 +358,7 @@ void hdr_output_metadata_info(int fd, uint32_t blob_id)
 		ofLog() << "HDR_OUTPUT_METADATA(blob) currently set to:";
 		ofLog() << "	metadata_type = " << static_cast<int>(info->metadata_type); 
 		ofLog() << "	eotf = " << static_cast<int>(info->eotf);
-		ofLog() << "    metadata_type = " << static_cast<int>(info->metadata_type);
+		ofLog() << "	metadata_type = " << static_cast<int>(info->metadata_type);
 		ofLog() << "	display_primaries_r_x = " << info->display_primaries[2].x;
 		ofLog() << "	display_primaries_r_y = " << info->display_primaries[2].y;
 		ofLog() << "	display_primaries_g_x = " << info->display_primaries[0].x;
@@ -770,10 +770,8 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 			} else if (strcmp(prop->name, "MODE_ID") == 0) {
 				mode_id_info(drm_fd, value);
 			} else if (strcmp(prop->name, "HDR_OUTPUT_METADATA") == 0) {
-
 				hdr_output_metadata_info(drm_fd, value);
 			} else if (strcmp(prop->name, "DOVI_OUTPUT_METADATA") == 0) {
-
 				dovi_output_metadata_info(drm_fd, value);
 			} else if (strcmp(prop->name, "WRITEBACK_PIXEL_FORMATS") == 0) {
 			//	writeback_pixel_formats_info(drm_fd, value);
@@ -1263,6 +1261,7 @@ bool ofxRPI4Window::InitDRM()
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
     
     drmModeEncoder* encoder = NULL;
+    drmModeFreeCrtc(crtc);
     
     if (connector->encoder_id)
     {
@@ -1290,7 +1289,7 @@ bool ofxRPI4Window::InitDRM()
 			}
 		}
 		
-		
+	crtcId = crtc->crtc_id;	
 		
 		
     res	= drmModeGetPlaneResources(device);
@@ -1364,7 +1363,7 @@ int foundHDR=0;
 	}
 
 
-
+    drmModeFreeCrtc(crtc);
 	drmModeFreePlaneResources(res);
     drmModeFreeEncoder(encoder);
     drmModeFreeConnector(connector);
@@ -1501,7 +1500,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
 			} else {
-				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
+				ofLog() << "DRM: setting up HDR(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 			}	
@@ -1545,7 +1544,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
 			} else {
-				ofLog() << "DRM: setting up SDR(8 bit) window/surface";
+				ofLog() << "DRM: setting up HDR(8 bit) window/surface";
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
 			}
@@ -2571,17 +2570,14 @@ void ofxRPI4Window::update()
 		if (isHDR && !isDoVi && !is_std_DoVi) { 
 			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: updating HDR(10 bit) window/surface"; 
-
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
 			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating HDR(12 bit) window/surface"; 
-
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
 			} else {
-				ofLog() << "DRM: updating SDR(8 bit) window/surface"; 
-
+				ofLog() << "DRM: updating HDR(8 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();				
 			}	
@@ -2594,7 +2590,6 @@ void ofxRPI4Window::update()
 				HDRWindowSetup();
 			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating Low Latency DoVi(12 bit) window/surface"; 
-
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
 			} else {
@@ -2819,8 +2814,8 @@ void ofxRPI4Window::swapBuffers()
 		//flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET);
 #if 0
 	int waiting_for_flip = 1;
-	drmModeSetCrtc(device, crtc->crtc_id, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
-	int	ret = drmModePageFlip(device, crtc->crtc_id, fb->fb_id, DRM_MODE_PAGE_FLIP_ASYNC, &waiting_for_flip);
+	drmModeSetCrtc(device, crtcId, fb->fb_id, 0, 0, &connectorId, 1, &mode);   
+	int	ret = drmModePageFlip(device, crtcId, fb->fb_id, DRM_MODE_PAGE_FLIP_ASYNC, &waiting_for_flip);
 	if (ret) {
 		ofLogError() << "DRM: failed to queue page flip: " << strerror(errno);
 
@@ -2929,7 +2924,7 @@ uint64_t modifier[4] = { modifiers[1], modifiers[1] };
 	/* We assume that the currently chosen encoder CRTC ID is the current
 	 * one.
 	 */
-	uint32_t current_crtc_id = crtc->crtc_id;
+	uint32_t current_crtc_id = crtcId;
 
 	if (!current_crtc_id) {
 		printf("The retrieved encoder has no CRTC attached... ?\n");
@@ -3005,17 +3000,12 @@ uint64_t modifier[4] = { modifiers[1], modifiers[1] };
 return frame_buffer_id;
 }
 
-void ofxRPI4Window::DisablePlane(uint32_t plane_id)
+void ofxRPI4Window::ResetConnectorProperties()
 {
 	bool ok;
-    //disable CRTC
- 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &prop_id, NULL, &prop);
+	ofLog() << "DRM: Resetting connector properties";
+
 	first_req = 1;
- 	drm_mode_atomic_set_property(device, req, "CRTC_ID" , plane_id,	prop_id, 0, prop, 0);
-	
-    //disable FB_ID					
-	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id , 0, prop, 0);  //value can also be crtc->buffer_id ** FB id to connect to
 					
     //set Colorimetry, set to default
 	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorimetry", &prop_id, &colorimetry, &prop);
@@ -3073,7 +3063,30 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id)
 	}
 
 		
-	last_req = 0; //reset to allow new atomic requests without committin
+}
+
+void ofxRPI4Window::DisablePlane(uint32_t plane_id, const char* plane)
+{
+	bool ok;
+	ofLog() << "DRM: Disabling " << plane << " plane: " << plane_id;
+	
+	first_req = 1;
+	
+    //disable CRTC
+ 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &prop_id, NULL, &prop);
+	if (!ok)
+		ofLogError() << "DRM: Unable to find CRTC_ID";
+
+ 	drm_mode_atomic_set_property(device, req, "CRTC_ID" , plane_id,	prop_id, 0, prop, 0);
+	
+    //disable FB_ID					
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &prop_id, NULL, &prop);
+	if (!ok)
+		ofLogError() << "DRM: Unable to find FB_ID";
+	
+	last_req = 1; //final atomic request, set to commit all prior requests
+	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id , 0, prop, 0); 
+	
 }
 
 int ofxRPI4Window::SetPlaneId()
@@ -3097,8 +3110,9 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 
 	if (flip) { 
 		// disable plane when working layer no longer is active, do this at window change/flip	
-		DisablePlane(SDRplaneId);
-		DisablePlane(HDRplaneId);
+		DisablePlane(SDRplaneId, "SDR");
+		DisablePlane(HDRplaneId, "HDR");
+		ResetConnectorProperties();
 		if (isHDR && !isDoVi && !is_std_DoVi)
 		{  
 
@@ -3161,7 +3175,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 	SetActivePlane(SetPlaneId(), currentWindowRect, fb_id);
 
 /*
-	if (drmModeSetPlane(device, SetPlaneId(), crtc->crtc_id,
+	if (drmModeSetPlane(device, SetPlaneId(), crtcId,
 		    fb_id, DRM_MODE_PAGE_FLIP_ASYNC |DRM_MODE_ATOMIC_NONBLOCK, crtc->x, crtc->y,
 		    crtc->width, crtc->height, 0, 0,
 		    ((int)currentWindowRect.width << 16), ((int)currentWindowRect.height << 16)))
@@ -3175,20 +3189,24 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 {
 	bool ok;
     uint64_t blob_id;
+   
 	first_req = 1;
 
 	// at window change/update allow modesetting of CRTC to make active 
 	if (flip) {
+		
+		ofLog() << "DRM: Setting Active plane";	
+		
 		// set connector CRTC_ID
  		ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", &prop_id, NULL, &prop);
 
 		if (!ok)
 			ofLogError() << "DRM: Unable to find CRTC_ID";
 
-		drm_mode_atomic_set_property(device, req, "CRTC_ID" , connectorId,	prop_id, crtc->crtc_id, prop, 0);
+		drm_mode_atomic_set_property(device, req, "CRTC_ID" , connectorId,	prop_id, crtcId, prop, 0);
 		
 		//set CRTC mode 			
-		ok = drm_mode_get_property(device, crtc->crtc_id, DRM_MODE_OBJECT_CRTC, "MODE_ID", &prop_id, &blob_id, &prop);
+		ok = drm_mode_get_property(device, crtcId, DRM_MODE_OBJECT_CRTC, "MODE_ID", &prop_id, &blob_id, &prop);
 
 		if (!ok || !blob_id)
 			ofLogError() << "DRM: Unable to find MODE_ID";
@@ -3197,15 +3215,15 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 		blob_id = 0;
 
 		drmModeCreatePropertyBlob(device, &mode, sizeof(mode), (uint32_t*)&blob_id);						  
-		drm_mode_atomic_set_property(device, req, "MODE_ID", crtc->crtc_id, prop_id, blob_id, prop, 0);
+		drm_mode_atomic_set_property(device, req, "MODE_ID", crtcId, prop_id, blob_id, prop, 0);
 		
 		//set CRTC as Active		
-		ok = drm_mode_get_property(device, crtc->crtc_id, DRM_MODE_OBJECT_CRTC, "ACTIVE", &prop_id, NULL, &prop);
+		ok = drm_mode_get_property(device, crtcId, DRM_MODE_OBJECT_CRTC, "ACTIVE", &prop_id, NULL, &prop);
 
 		if (!ok)
 			ofLogError() << "DRM: Unable to find ACTIVE";
 
-		drm_mode_atomic_set_property(device, req, "ACTIVE", crtc->crtc_id,	prop_id, 1, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
+		drm_mode_atomic_set_property(device, req, "ACTIVE", crtcId,	prop_id, 1, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 	//set CRTC dimenstions to match mode and plane
 	crtc->x = static_cast<int32_t>(currentWindowRect.x);
@@ -3220,7 +3238,7 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id, fb_id, prop, 0);  //value can also be crtc->buffer_id ** FB id to connect to			
 					
 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &prop_id, NULL, &prop);
-	drm_mode_atomic_set_property(device, req, "CRTC_ID", plane_id, prop_id, crtc->crtc_id, prop, 0);
+	drm_mode_atomic_set_property(device, req, "CRTC_ID", plane_id, prop_id, crtcId, prop, 0);
 					
 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_X", &prop_id, NULL, &prop);
 	drm_mode_atomic_set_property(device, req, "SRC_X", plane_id, prop_id, 0, prop, 0);
@@ -3255,6 +3273,9 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 {
 	bool ok;
+	
+	ofLog() << "DRM: Setting HDR infoframe";	
+
 /*
 	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
 	if (!ok) {
@@ -3322,12 +3343,14 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
-	last_req = 0;
+//	last_req = 0;
 }
  
 void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) 
 {
 	bool ok;
+
+	ofLog() << "DRM: Setting DoVi infoframe";	
 	
 	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "DOVI_OUTPUT_METADATA", &prop_id, &blob_id, &prop);
 	
@@ -3356,14 +3379,16 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface)
 		last_req = 1; // commit previous atomic requests	
 		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	} 
-	drmModeFreeProperty(prop);
 
-	last_req = 0;
+//	last_req = 0;
 }
 
 void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
 {
 	bool ok;
+	
+	ofLog() << "DRM: Setting connector properties";
+	
 	first_req = 1; // allocate for atomic requests
 	
 	/* set colorimtery */	
@@ -3406,6 +3431,8 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 		drm_mode_atomic_set_property(device, req, "rgb quant range", connectorId, prop_id, rgb_quant_range, prop, 0);
 	}	
 
+	ofLog() << "DRM: Setting plane properties";
+	
     /* set COLOR_ENCODING plane property, for multi-plane formats, does nothing for single plane formats*/
 	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", &prop_id, &c_enc, &prop);
 
@@ -3428,7 +3455,7 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 		drm_mode_atomic_set_property(device, req, "COLOR_RANGE", plane_id, prop_id, c_range, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
-	last_req = 0;
+//	last_req = 0;
 }
 
 void ofxRPI4Window::draw()
@@ -3592,7 +3619,7 @@ void ofxRPI4Window::gbmClean()
 {
 #if 0 
  // set the previous crtc
-    drmModeSetCrtc(device, crtc->crtc_id, crtc->buffer_id, crtc->x, crtc->y, &connectorId, 1, &crtc->mode);
+    drmModeSetCrtc(device, crtcId, crtc->buffer_id, crtc->x, crtc->y, &connectorId, 1, &crtc->mode);
     drmModeFreeCrtc(crtc);
 
 	drm_mode_atomic_set_property(device, req, "max bpc" , connectorId,

@@ -125,7 +125,7 @@ struct drm_hdr_metadata_infoframe {
 };
 
 struct drm_hdr_output_metadata {
-  uint8_t metadata_type;
+  uint32_t metadata_type;
   union {
     struct drm_hdr_metadata_infoframe hdmi_metadata_type1;
   };
@@ -183,14 +183,14 @@ struct avi_infoframe {
 
 struct DisplayChromacities
 {
-	double RedX = 0.0;
-	double RedY = 0.0;
-	double GreenX = 0.0;
-	double GreenY = 0.0;
-	double BlueX = 0.0;
-	double BlueY = 0.0;
-	double WhiteX = 0.0;
-	double WhiteY = 0.0;
+	double RedX;
+	double RedY;
+	double GreenX;
+	double GreenY;
+	double BlueX;
+	double BlueY;
+	double WhiteX;
+	double WhiteY;
 };
 
 static const DisplayChromacities DisplayChromacityList[] =
@@ -228,30 +228,30 @@ public:
 		EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT
 	};   
     int device;
-
+ 
     drmModeModeInfo mode;
     struct gbm_device* gbmDevice = nullptr;
     struct gbm_surface* gbmSurface = nullptr;
-    drmModeCrtc *crtc;
+	
+    drmModeCrtc *crtc = nullptr;
 	int crtc_index = 0;
-    uint32_t connectorId = 0, HDRplaneId = 0, SDRplaneId = 0;
+    uint32_t crtcId = 0, connectorId = 0, HDRplaneId = 0, SDRplaneId = 0;
 
 	uint64_t colorimetry = 0, rgb_quant_range = 0, max_bpc = 0, output_format = 0, c_enc = 0, c_range = 0, in_formats = 0;
 	uint32_t prop_id = 0;
-	uint64_t crtc_id = 0, fb_id = 0, blob_id = 0;
-	drmModePropertyPtr prop;
-	drmModeAtomicReq *req;
-	drmModePlaneRes *res;
-	drmModePlane *plane;
+	uint64_t blob_id = 0;
+	drmModePropertyPtr prop = nullptr;
+	drmModeAtomicReq *req = nullptr;
+	drmModePlaneRes *res = nullptr;
+	drmModePlane *plane = nullptr;
 	unsigned int num_modifiers = 0;
-	uint64_t *modifiers = NULL;
+	uint64_t *modifiers = nullptr;
 	avi_infoframe property_id;
 	static struct drm_hdr_output_metadata hdr_metadata;
 	static avi_infoframe avi_info;
 //	uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
 	
-		//	uint64_t output_format;
-    gbm_bo *previousBo = NULL;
+    gbm_bo *previousBo = nullptr;
     uint32_t previousFb = 0;
 	uint32_t buffer_width = 0, buffer_height = 0;
     static ofShader shader;  
@@ -331,7 +331,8 @@ public:
 	/* Set DRM Plane swap between HDR and SDR planes */
 	void FlipPage(bool flip, uint32_t fb_id);
 	void SetActivePlane(uint32_t plane_id, ofRectangle currentWindowRect, int fb_id);
-	void DisablePlane(uint32_t plane_id); 
+	void DisablePlane(uint32_t plane_id, const char* plane); 
+	void ResetConnectorProperties();
 	int SetPlaneId();
 
 	/* Userspace access to HDR, DoVi , AVI Infoframes */
