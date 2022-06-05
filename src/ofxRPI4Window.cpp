@@ -1399,13 +1399,13 @@ void ofxRPI4Window::FindModifiers(uint32_t format, uint32_t plane_id)
 			break;
 		} 
 	}
-	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "IN_FORMATS", NULL, &in_formats, &prop);
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "IN_FORMATS", NULL, &in_formats, NULL);
 	if (!ok) 
 		ofLogError() << "DRM: Unable to find IN_FORMATS";	
 	
 	get_format_modifiers(device, in_formats, format_index);	
 	
-	drmModeFreeProperty(prop);
+//	drmModeFreeProperty(prop);
 
 	drmModeFreePlane(plane);
 	
@@ -1961,7 +1961,7 @@ void ofxRPI4Window::HDRWindowSetup()
             auto error = eglGetError();
             ofLogError() << "surface ERROR: " << eglErrorString(error);
         }
-           
+         currentRenderer.reset();  
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
@@ -2498,6 +2498,7 @@ int ret;
 			}
 		} 
 #endif		
+         currentRenderer.reset();  
 
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
@@ -2566,7 +2567,7 @@ void ofxRPI4Window::update()
 				}
 			break;
 		}  
-	
+
 		if (isHDR && !isDoVi && !is_std_DoVi) { 
 			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: updating HDR(10 bit) window/surface"; 
@@ -3266,9 +3267,6 @@ void ofxRPI4Window::SetActivePlane(uint32_t plane_id, ofRectangle currentWindowR
 	last_req = 1;
 	drm_mode_atomic_set_property(device, req, "CRTC_H", plane_id, prop_id, crtc->height, prop, DRM_MODE_ATOMIC_ALLOW_MODESET | DRM_MODE_PAGE_FLIP_EVENT  | DRM_MODE_ATOMIC_NONBLOCK);
 
-//	flags &= ~(DRM_MODE_ATOMIC_ALLOW_MODESET); //allow modesetting for first commit only of plane properties
-
-
 }
 void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 {
@@ -3343,7 +3341,6 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 		drm_mode_atomic_set_property(device, req, "HDR_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
-//	last_req = 0;
 }
  
 void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface) 
@@ -3360,8 +3357,12 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface)
 		if (blob_id)
 			drmModeDestroyPropertyBlob(device, blob_id);
 		blob_id = 0;	
-		if (!enable && !dv_interface)
+		if (!enable && !dv_interface) {
+			first_req = 1; // allocate for atomic requests
+			last_req = 1; // commit previous atomic requests	
+			drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 			return; 
+		}
 		struct dovi_output_metadata dovi;
 		if (dv_interface == 1) 
 			dovi.oui = 0x000C03;
@@ -3380,7 +3381,6 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface)
 		drm_mode_atomic_set_property(device, req, "DOVI_OUTPUT_METADATA", connectorId, prop_id, blob_id, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	} 
 
-//	last_req = 0;
 }
 
 void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
@@ -3455,7 +3455,6 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 		drm_mode_atomic_set_property(device, req, "COLOR_RANGE", plane_id, prop_id, c_range, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
 	}
 
-//	last_req = 0;
 }
 
 void ofxRPI4Window::draw()
@@ -3614,7 +3613,7 @@ void ofxRPI4Window::DestroySurface()
     eglDestroySurface(display, surface);
     surface = EGL_NO_SURFACE;
   }
-}
+} 
 void ofxRPI4Window::gbmClean()
 {
 #if 0 
@@ -3639,9 +3638,9 @@ void ofxRPI4Window::gbmClean()
 			property_id.c_range , 0 , prop );
 #endif			
     if (previousBo)
-    {
+    { 
     //    drmModeRmFB(device, previousFb);
-        gbm_surface_release_buffer(gbmSurface, previousBo);
+       gbm_surface_release_buffer(gbmSurface, previousBo);
     }
 
   if (gbmSurface != NULL) { 
@@ -3649,7 +3648,7 @@ void ofxRPI4Window::gbmClean()
 	gbmSurface = NULL;
   }
   if (gbmDevice != NULL) {
-    gbm_device_destroy(gbmDevice);
+  //  gbm_device_destroy(gbmDevice);
 	gbmDevice = NULL;
   }
 }
