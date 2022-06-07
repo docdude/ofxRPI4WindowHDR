@@ -237,9 +237,9 @@ public:
 	int crtc_index = 0;
     uint32_t crtcId = 0, connectorId = 0, HDRplaneId = 0, SDRplaneId = 0;
 
-	uint64_t colorimetry = 0, rgb_quant_range = 0, max_bpc = 0, output_format = 0, c_enc = 0, c_range = 0, in_formats = 0;
+	uint64_t colorimetry = 0, rgb_quant_range = 0, max_bpc = 0, output_format = 0, c_enc = 0, c_range = 0;
 	uint32_t prop_id = 0;
-	uint64_t blob_id = 0;
+
 	drmModePropertyPtr prop = nullptr;
 	drmModeAtomicReq *req = nullptr;
 	drmModePlaneRes *res = nullptr;
@@ -312,6 +312,8 @@ public:
 	static int bit_depth;
 	static int mode_idx;
 	static int dv_metadata;	
+	static int dv_status;
+	static int dv_interface; 
 	int current_bit_depth = 0;
 	int initial_bit_depth = 0;
 	int starting_bpc = 0;
@@ -370,7 +372,7 @@ public:
 	void DestroySurface();
 	void DestroyImage();
     virtual ~ofxRPI4Window();
-    bool skipRender;
+    bool skipRender=false;
     struct timeval t0;
     struct timeval t1;
     float lastFrameTimeMillis;
