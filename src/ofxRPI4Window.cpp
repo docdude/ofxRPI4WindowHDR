@@ -1681,8 +1681,8 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 					f1 = 0.511424486;
 					f2 = 0.511451232; 
 
-					dovi_offset1 = 0.5;
-					dovi_offset2 = 0.0625;
+					dovi_offset1 = 0.0;//0.5;
+					dovi_offset2 = 0.0;//0.0625;
 				} else {
 					idx = 0;
 					d = 1.8556;
@@ -1697,8 +1697,8 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 					d = 17610./9574.; //1.839356591;
 					e = 13802./9574.; //1.441612701;
 					f1 = f2 = 0.51143365;
-					dovi_offset1 = 0.5;
-					dovi_offset2 = 0.0625;
+					dovi_offset1 = 0.0;//0.5;
+					dovi_offset2 = 0.0;//0.0625;
 				} else {
 					idx = 1;
 					d = 1.8814;
