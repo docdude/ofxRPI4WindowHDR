@@ -1646,13 +1646,16 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		
 		vec4 RGBtoYCbCr(vec4 rgb)
 		{
-
-			float coeffs[4][3];
+			vec4 rgb1 = rgb;
+			vec4 rgb2 = rgb;
+			float coeffs[5][3];
 			coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
 			coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
 			coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
 			coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
-			
+			coeffs[4] = float[](0.0, 0.0,	0.0); //dovi rgb2 coeff
+			float Y, Y1, Y2, Cb, Cr, a;
+			int R1, G1, B1, R2, G2, B2;
 			float d,e,f1,f2,scale, normalizer;
 			int shift = bits - 8;
 			float scalar_full1 = float(256 << shift);
@@ -1675,12 +1678,18 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}
 			if (colorimetry == 2) {
 				if (is_std_DoVi == 1) {
-					idx = 2;
-					d = 17369./9574.; //1.814184249;
-					e = 14739./9574.; //1.5394819;
-					f1 = 0.511424486;
-					f2 = 0.511451232; 
-
+					//idx = 2;
+					idx = 0;
+			//		d = 17369./9574.; //1.814184249;
+				//	e = 14739./9574.; //1.5394819;
+				//	f1 = 0.511424486;
+				//	f2 = 0.511451232; 
+					d = 1.8556;
+					e = 1.5748;
+					f1 = f2 = 0.5;
+					offset = 2048.;
+				scalar1=scalar_limit1; 
+				scalar2=scalar_limit2;
 					dovi_offset1 = 0.0;//0.5;
 					dovi_offset2 = 0.0;//0.0625;
 				} else {
@@ -1713,12 +1722,23 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			shift = 8; // for 10bit need to use 16bit scalar
 			}	
 			scale = float((256 << shift) - 1);
+if (is_std_DoVi == 1) {
+			 Y1 = round(coeffs[idx][0] * float(int(rgb1.r*scale)<<4) + coeffs[idx][1]* float(int(rgb1.g*scale)<<4) + coeffs[idx][2] * float(int(rgb1.b*scale)<<4) + coeffs[idx+4][0] * float(int(rgb2.r*scale)<<4) + coeffs[idx+4][1]* float(int(rgb2.g*scale)<<4) + coeffs[idx+4][2] * float(int(rgb2.b*scale)<<4));
+			 Cb = round((((-coeffs[idx][0]/d) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb1.g*scale)<<4) + float(f1) * float(int(rgb1.b*scale)<<4) + (-coeffs[idx][0]/d) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb2.g*scale)<<4) + float(f1) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + offset); // Chrominance Blue
+			 Y2 = round(coeffs[idx+4][0] * float(int(rgb1.r*scale)<<4) + coeffs[idx+4][1]* float(int(rgb1.g*scale)<<4) + coeffs[idx+4][2] * float(int(rgb1.b*scale)<<4) + coeffs[idx][0] * float(int(rgb2.r*scale)<<4) + coeffs[idx][1]* float(int(rgb2.g*scale)<<4) + coeffs[idx][2] * float(int(rgb2.b*scale)<<4));
 
-			float Y = round((coeffs[idx][0] * rgb.r*scale + coeffs[idx][1]* rgb.g*scale + coeffs[idx][2] * rgb.b*scale)-dovi_offset1);
-			float Cb = round((((-coeffs[idx][0]/d) * rgb.r*scale - (coeffs[idx][1]/d) * rgb.g*scale + float(f1) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset1); // Chrominance Blue
-			float Cr = round(((float(f2) * rgb.r*scale - (coeffs[idx][1]/e) * rgb.g*scale - (coeffs[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset2); // Chrominance Red
-			float a = 1.0;
+			 Cr = round(((float(f2) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb1.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb1.b*scale)<<4) + float(f2) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb2.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + offset); // Chrominance Red
+		//     Cr = round(((float(0.5) * float(int(rgb1.r*scale)<<4) - (float(0.7152)/e) * float(int(rgb1.g*scale)<<4) - (float(0.0722)/e) * float(int(rgb1.b*scale)<<4) + float(0.5) * float(int(rgb2.r*scale)<<4) - (0.7152/e) * float(int(rgb2.g*scale)<<4) - (float(0.0722)/e) * float(int(rgb2.b*scale)<<4))*float(224)/float(219))/float(2) + float(2048)); // Chrominance Red
+			 a = 1.0;
 
+} else {		
+			 Y = round((coeffs[idx][0] * rgb.r*scale + coeffs[idx][1]* rgb.g*scale + coeffs[idx][2] * rgb.b*scale)-dovi_offset1);
+			 Cb = round((((-coeffs[idx][0]/d) * rgb.r*scale - (coeffs[idx][1]/d) * rgb.g*scale + float(f1) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset1); // Chrominance Blue
+			 Cr = round(((float(f2) * rgb.r*scale - (coeffs[idx][1]/e) * rgb.g*scale - (coeffs[idx][2]/e) * rgb.b*scale)*scalar1/scalar2 + offset)-dovi_offset2); // Chrominance Red
+			 a = 1.0;
+
+}
+			
 			if (color_format == 1) {
 				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
 			}
@@ -1726,19 +1746,26 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 				return vec4(Y/normalizer,Cb/normalizer,Cr/normalizer, a);
 			}
 			if (is_std_DoVi == 1) {
-				
+			 R1 = int(Cb) >> 4;  
+             G1 = int(Y1) >> 4;
+             B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+			 R2 = int(Cr) >> 4;  
+             G2 = int(Y2) >> 4;
+             B2 = int(Y2) & 15| ((int(Cr) & 15) << 4);				
 			//	vec2 u_resolution = vec2(1920.,1080.);
 			//	vec2 txc = gl_FragCoord.xy;
 			//	vec2 txc =  vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) - 0.5;
 				// even
 			//	if (int(floor(txc.x)) % 2 == 0) {
 				if(mod(gl_FragCoord.x,2.0)<1.0) {
-					if (rgb.r == rgb.g && rgb.r == rgb.b) Cr = 0.0;
-					return vec4(Cb/normalizer,Y/normalizer,Cr/normalizer, a);
+				//	if (rgb.r == rgb.g && rgb.r == rgb.b) Cr = 0.0;
+				//	return vec4(Cb/normalizer,Y/normalizer,Cr/normalizer, a);
+					return  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
 				// odd
 				} else {
-					if (rgb.r == rgb.g && rgb.r == rgb.b) Cb = 0.0;
-					return vec4(Cr/normalizer,Y/normalizer,Cb/normalizer, a);
+					//if (rgb.r == rgb.g && rgb.r == rgb.b) Cb = 0.0;
+					//return vec4(Cr/normalizer,Y/normalizer,Cb/normalizer, a);
+					return  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
 				}
 			} 
 
