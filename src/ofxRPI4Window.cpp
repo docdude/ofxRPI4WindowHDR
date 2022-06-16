@@ -1786,7 +1786,8 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}
 		} 
 	)";
-
+		
+	
 	shader.setup(settings);	
 //	dovi_shader.setup(settings);
 }
