@@ -323,6 +323,8 @@ public:
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
 	static void rgb2ycbcr_shader();
+	static void dovi_pattern_shader();
+	static void dovi_image_shader();
 	int CreateFB_ID();
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);

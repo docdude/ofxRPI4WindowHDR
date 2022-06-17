@@ -1606,7 +1606,7 @@ void ofxRPI4Window::EGL_create_surface(EGLint attribs[], EGLConfig config)
 		surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)gbmSurface, NULL);
 	}
 }
-
+#if 1
 void ofxRPI4Window::rgb2ycbcr_shader()
 {  //  ofShader shader;    
 
@@ -1643,14 +1643,14 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		{		
 			vec4 rgb1;
 			vec4 rgb2;
-			if (is_std_DoVi == 1 && is_image == 1) {
+			if (is_image == 1) {
 				rgb1 = rgb;
 				vec2 onePixel = vec2(1.0, 0.0) / resolution;
 				//vec2 position = ( gl_FragCoord.xy / resolution.xy );
 				rgb2 = texture(tex0, texCoordVarying + onePixel) * globalColor;//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//rgb;
 				
 			} 
-			if (is_std_DoVi == 1 && is_image == 0) {
+			if (is_image == 0) {
 				rgb1 = rgb2 = rgb; 
 			}
 			float coeffs[5][3];
@@ -1681,41 +1681,20 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 				scalar2=scalar_full2;
 			}
 			if (colorimetry == 2) {
-				if (is_std_DoVi == 1) {
-					//idx = 2;
-					idx = 0;
-			//		d = 17369./9574.; //1.814184249;
-				//	e = 14739./9574.; //1.5394819;
-				//	f1 = 0.511424486;
-				//	f2 = 0.511451232; 
-					d = 1.8556;
-					e = 1.5748;
-					f1 = f2 = 0.5;
-					offset = 2048.0;
-				scalar1=scalar_limit1; 
-				scalar2=scalar_limit2;
 
-				} else {
 					idx = 0;
 					d = 1.8556;
 					e = 1.5748;
 					f1 = f2 = 0.5;
-					
-				}
+
 			}	
 			if (colorimetry == 9) {
-				if (is_std_DoVi == 1) {
-					idx = 3;
-					d = 17610./9574.; //1.839356591;
-					e = 13802./9574.; //1.441612701;
-					f1 = f2 = 0.51143365;
 
-				} else {
 					idx = 1;
 					d = 1.8814;
 					e = 1.4746;
 					f1 = f2 = 0.5;
-				}
+
 			}
 
 			normalizer = float((256 << shift) - 1);
@@ -1725,13 +1704,13 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}	
 			scale = float((256 << shift) - 1);
 
-			if (is_std_DoVi == 1) {
-				scale =  float((256 << shift) - 0);
+			if (color_format == 0) {
+				scale =  float((256 << shift) - 1);
 				/* YCrCb422 matrix */
 				Y1 = round(coeffs[idx][0] * float(int(rgb1.r*scale)<<4) + coeffs[idx][1]* float(int(rgb1.g*scale)<<4) + coeffs[idx][2] * float(int(rgb1.b*scale)<<4) + coeffs[idx+4][0] * float(int(rgb2.r*scale)<<4) + coeffs[idx+4][1]* float(int(rgb2.g*scale)<<4) + coeffs[idx+4][2] * float(int(rgb2.b*scale)<<4));
-				Cb = round((((-coeffs[idx][0]/d) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb1.g*scale)<<4) + float(f1) * float(int(rgb1.b*scale)<<4) + (-coeffs[idx][0]/d) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb2.g*scale)<<4) + float(f1) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + offset); // Chrominance Blue
+				Cb = round((((-coeffs[idx][0]/d) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb1.g*scale)<<4) + float(f1) * float(int(rgb1.b*scale)<<4) + (-coeffs[idx][0]/d) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/d) * float(int(rgb2.g*scale)<<4) + float(f1) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + 2048.); // Chrominance Blue
 				Y2 = round(coeffs[idx+4][0] * float(int(rgb1.r*scale)<<4) + coeffs[idx+4][1]* float(int(rgb1.g*scale)<<4) + coeffs[idx+4][2] * float(int(rgb1.b*scale)<<4) + coeffs[idx][0] * float(int(rgb2.r*scale)<<4) + coeffs[idx][1]* float(int(rgb2.g*scale)<<4) + coeffs[idx][2] * float(int(rgb2.b*scale)<<4));
-				Cr = round(((float(f2) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb1.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb1.b*scale)<<4) + float(f2) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb2.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + offset); // Chrominance Red
+				Cr = round(((float(f2) * float(int(rgb1.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb1.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb1.b*scale)<<4) + float(f2) * float(int(rgb2.r*scale)<<4) - (coeffs[idx][1]/e) * float(int(rgb2.g*scale)<<4) - (coeffs[idx][2]/e) * float(int(rgb2.b*scale)<<4))*scalar1/scalar2)/float(2.0) + 2048.); // Chrominance Red
 				a = 1.0;
 				/* Pack YUV for tunneling -- to do?? */
 			} else {		
@@ -1742,35 +1721,35 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			}
 			
 			if (color_format == 1) {
-				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
+				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a); 
 			}
 			if (color_format == 2) {
 				return vec4(Y/normalizer,Cb/normalizer,Cr/normalizer, a);
 			}
-			if (is_std_DoVi == 1) {
+			if (color_format == 0) {
 				/* Pack Dolby As RGB */
-				R1 = int(Cb) >> 4;  
+				B1 = int(Cb) >> 4;  
 				G1 = int(Y1) >> 4;
-				B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+				R1 = int(Cr) >>4;//int(Y1) & 15 | ((int(Cb) & 15) << 4);
 				R2 = int(Cr) >> 4;  
 				G2 = int(Y2) >> 4;
-				B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);				
+				B2 = int(Cb) >> 4;//int(Y2) & 15 | ((int(Cr) & 15) << 4);				
 
 			//	vec2 txc = gl_FragCoord.xy;
 			//	vec2 txc =  vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) - 0.5;
 				// even
 			//	if (int(floor(txc.x)) % 2 == 0) {
 				if(mod(gl_FragCoord.x,2.0)<1.0) {
-				//	if (rgb.r == rgb.g && rgb.r == rgb.b) Cr = 0.0;
+				
 				//	return vec4(Cb/normalizer,Y/normalizer,Cr/normalizer, a);
-					return  vec4(float(R1)/normalizer,float(G1)/normalizer, float(B1)/normalizer,a); 
-					//				return  vec4(Y1/normalizer,Y2/normalizer, Cb/normalizer,Cr/normalizer); 
+					return  vec4(float(G1)/normalizer,float(B1)/normalizer, float(R1)/normalizer,a); 
+						//			return  vec4(G1/normalizer,B1/normalizer, R1/normalizer,a); 
 
 				// odd
 				} else {
-					//if (rgb.r == rgb.g && rgb.r == rgb.b) Cb = 0.0;
-					//return vec4(Cr/normalizer,Y/normalizer,Cb/normalizer, a);
-					return  vec4(float(R2)/normalizer,float(G2)/normalizer, float(B2)/normalizer,a); 
+				
+			//	return vec4(Y2/normalizer,Cb/normalizer,Cr/normalizer, a);
+					return  vec4(float(G2)/normalizer,float(B2)/normalizer, float(R2)/normalizer,a); 
 				}
 			} 
 
@@ -1792,6 +1771,177 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 //	dovi_shader.setup(settings);
 }
 
+void ofxRPI4Window::dovi_pattern_shader()
+{  //  ofShader shader;    
+
+	ofShaderSettings settings;
+	settings.shaderSources[GL_VERTEX_SHADER] = R"(
+		#version 310 es
+		uniform mat4 modelViewProjectionMatrix;
+		in vec4 position;
+		in vec2 texcoord;
+		out vec2 texCoordVarying;
+		void main(){
+			texCoordVarying = texcoord;
+			gl_Position = modelViewProjectionMatrix * position;
+		}
+
+	)";
+
+	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
+		#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+	//	uniform int bits;
+	//	uniform int colorimetry;
+	//	uniform int color_format;
+	//	uniform int rgb_quant_range;
+	//	uniform int is_image;
+	//	uniform int is_std_DoVi;
+		uniform sampler2D tex0;
+		uniform vec2 resolution;
+		in vec2 texCoordVarying; 
+		out vec4 outputColor;
+
+		void main() 
+		{		
+			vec4 rgb1 = globalColor;
+			vec4 rgb2 = globalColor;
+		//	float coeffs[5][3];
+		//	coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
+		//	coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
+		//	coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
+		//	coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
+		//	coeffs[4] = float[](0.0, 0.0, 0.0); //dovi rgb2 coeff
+			float Y1, Y2, Cb, Cr, a;
+			int R1, G1, B1, R2, G2, B2;
+	
+				/* YCrCb422 matrix */
+				Y1 = round(0.2126 * float(int(rgb1.r*256.0)<<4) + 0.7152* float(int(rgb1.g*256.0)<<4) + 0.0722 * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+				Cb = round((((-0.2126/1.8556) * float(int(rgb1.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb1.g*256.0)<<4) + 0.5 * float(int(rgb1.b*256.0)<<4) + (-0.2126/1.8556) * float(int(rgb2.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb2.g*256.0)<<4) + 0.5 * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + 0.2126 * float(int(rgb2.r*256.0)<<4) + 0.7152 * float(int(rgb2.g*256.0)<<4) + 0.0722 * float(int(rgb2.b*256.0)<<4));
+				Cr = round(((0.5 * float(int(rgb1.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb1.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb1.b*256.0)<<4) + 0.5 * float(int(rgb2.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb2.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+				a = 1.0;
+				/* Pack YUV for tunneling -- to do?? */
+			
+
+				/* Pack Dolby As RGB */
+				R1 = int(Cb) >> 4;  
+				G1 = int(Y1) >> 4;
+				B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+				R2 = int(Cr) >> 4;  
+				G2 = int(Y2) >> 4;
+				B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);	
+				
+				//even
+				if(mod(gl_FragCoord.x,2.0)<1.0) {
+	
+					outputColor =  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
+
+				// odd
+				} else {
+
+					outputColor =  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
+				}
+		} 
+	)";
+		
+	
+	shader.setup(settings);	
+//	dovi_shader.setup(settings);
+}
+#endif
+void ofxRPI4Window::dovi_image_shader()
+{  //  ofShader shader;    
+
+	ofShaderSettings settings;
+	settings.shaderSources[GL_VERTEX_SHADER] = R"(
+		#version 310 es
+		uniform mat4 modelViewProjectionMatrix;
+		in vec4 position;
+		in vec2 texcoord;
+		out vec2 texCoordVarying;
+		void main(){
+			texCoordVarying = texcoord;
+			gl_Position = modelViewProjectionMatrix * position;
+		}
+
+	)";
+
+	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
+		#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+
+	//	uniform int is_image;
+		uniform sampler2D tex0;
+		uniform vec2 resolution;
+		in vec2 texCoordVarying; 
+		out vec4 outputColor;
+		
+
+		void main() 
+		{		
+
+			vec2 onePixel = vec2(1.0, 0.0) / resolution;
+			vec4 rgb1 = texture(tex0, texCoordVarying);
+
+				//vec2 position = ( gl_FragCoord.xy / resolution.xy );
+			vec4 rgb2 = texture(tex0, texCoordVarying + onePixel);//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//rgb;
+				
+
+		//	float coeffs[5][3];
+		//	coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
+		//	coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
+		//	coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
+		//	coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
+		//	coeffs[4] = float[](0.0, 0.0, 0.0); //dovi rgb2 coeff
+			float Y1, Y2, Cb, Cr, a;
+			int R1, G1, B1, R2, G2, B2;
+		//	float scale;
+
+
+
+
+
+
+			//	scale =  256.0;
+				/* YCrCb422 matrix */
+				Y1 = round(0.2126 * float(int(rgb1.r*256.0)<<4) + 0.7152* float(int(rgb1.g*256.0)<<4) + 0.0722 * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+				Cb = round((((-0.2126/1.8556) * float(int(rgb1.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb1.g*256.0)<<4) + 0.5 * float(int(rgb1.b*256.0)<<4) + (-0.2126/1.8556) * float(int(rgb2.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb2.g*256.0)<<4) + 0.5 * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + 0.2126 * float(int(rgb2.r*256.0)<<4) + 0.7152 * float(int(rgb2.g*256.0)<<4) + 0.0722 * float(int(rgb2.b*256.0)<<4));
+				Cr = round(((0.5 * float(int(rgb1.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb1.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb1.b*256.0)<<4) + 0.5 * float(int(rgb2.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb2.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+				a = 1.0;
+				/* Pack YUV for tunneling -- to do?? */
+			
+
+				/* Pack Dolby As RGB */
+				R1 = int(Cb) >> 4;  
+				G1 = int(Y1) >> 4;
+				B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+				R2 = int(Cr) >> 4;  
+				G2 = int(Y2) >> 4;
+				B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);				
+
+				// even
+				if(mod(gl_FragCoord.x,2.0)<1.0) {
+	
+					outputColor =  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
+
+
+				// odd
+				} else {
+
+					outputColor =  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
+				}
+
+		} 
+	)";
+		
+	
+	shader.setup(settings);	
+//	dovi_shader.setup(settings);
+}
 void ofxRPI4Window::HDRWindowSetup()
 {
 	if (!DestroyWindow()) 
@@ -1999,11 +2149,18 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if ((avi_info.output_format != 0 && !shader_init) || (is_std_DoVi && !shader_init)) {
+		if (avi_info.output_format != 0 && !shader_init) { 
 	//	  ofShader shader;
 	//	  shader.load("rgb2ycbcr");
 	//	  shader_init=0;
 			rgb2ycbcr_shader();
+		}
+		if (is_std_DoVi && !shader_init) {
+			if (colorspace_on) {
+				dovi_pattern_shader();
+			} else {
+				dovi_image_shader();
+			}
 		}
 		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
@@ -2537,10 +2694,18 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if ((avi_info.output_format != 0 && !shader_init) || (is_std_DoVi && !shader_init)) {
-		//  shader.load("rgb2ycbcr");
-		//	shader_init=0;
+		if (avi_info.output_format != 0 && !shader_init) { 
+	//	  ofShader shader;
+	//	  shader.load("rgb2ycbcr");
+	//	  shader_init=0;
 			rgb2ycbcr_shader();
+		}
+		if (is_std_DoVi && !shader_init) {
+			if (colorspace_on) {
+				dovi_pattern_shader();
+			} else {
+				dovi_image_shader();
+			}
 		}
 
    EGL_info();   
