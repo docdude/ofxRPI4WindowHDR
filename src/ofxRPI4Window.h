@@ -311,9 +311,12 @@ public:
 	static int hdr_primaries; 
 	static int bit_depth;
 	static int mode_idx;
-	static int dv_metadata;	
+//	static int dv_map_mode;	
 	static int dv_status;
 	static int dv_interface; 
+//	static int dv_minpq; 
+//	static int dv_maxpq; 
+//	static int dv_diagonal; 
 	int current_bit_depth = 0;
 	int initial_bit_depth = 0;
 	int starting_bpc = 0;
@@ -322,9 +325,12 @@ public:
 	static int shader_init;
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
+	
+	/* shaders */
 	static void rgb2ycbcr_shader();
 	static void dovi_pattern_shader();
 	static void dovi_image_shader();
+	
 	int CreateFB_ID();
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);

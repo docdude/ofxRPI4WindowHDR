@@ -1448,9 +1448,12 @@ int ofxRPI4Window::isDoVi = 0;
 int ofxRPI4Window::is_std_DoVi = 0;
 int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
-int ofxRPI4Window::dv_metadata = 0;
+//int ofxRPI4Window::dv_map_mode = 0;
 int ofxRPI4Window::dv_status = 0;
 int ofxRPI4Window::dv_interface = 0;
+//int ofxRPI4Window::dv_minpq = 0;
+//int ofxRPI4Window::dv_maxpq = 0;
+//int ofxRPI4Window::dv_diagonal = 0;
 hdmi_eotf ofxRPI4Window::eotf = static_cast<hdmi_eotf>(2); 
 int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
@@ -1458,7 +1461,7 @@ drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
 int ofxRPI4Window::colorspace_on = 0;
 int ofxRPI4Window::shader_init = 0;
 ofShader ofxRPI4Window::shader;
-//ofShader ofxRPI4Window::dovi_shader;
+
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 {
 	
