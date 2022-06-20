@@ -2698,12 +2698,10 @@ int ret;
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 		if (avi_info.output_format != 0 && !shader_init) { 
-	//	  ofShader shader;
-	//	  shader.load("rgb2ycbcr");
-	//	  shader_init=0;
+
 			rgb2ycbcr_shader();
 		}
-		if (is_std_DoVi && !shader_init) {
+		if (is_std_DoVi && shader_init) {
 			if (colorspace_on) {
 				dovi_pattern_shader();
 			} else {
@@ -3377,7 +3375,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 
 	}
 	
-	SetActivePlane(SetPlaneId(), currentWindowRect, fb_id);
+	SetActivePlane(SetPlaneId(), currentWindowRect, fb_id); 
 
 /*
 	if (drmModeSetPlane(device, SetPlaneId(), crtcId,
