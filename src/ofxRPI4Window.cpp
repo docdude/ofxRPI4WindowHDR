@@ -1237,12 +1237,21 @@ bool ofxRPI4Window::InitDRM()
 		drmModeModeInfo *current_mode = &connector->modes[i];
 		if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
 			mode = connector->modes[i];
-	//	if (strcmp(current_mode->name, "1920x1080") == 0 && mode_vrefresh(current_mode) == 24) {
-	//		ofxRPI4Window::mode_idx = i;
-			
-			break;
+			if (ofxRPI4Window::bit_depth == 10) {
+				if ((strcmp(mode.name, "4096x2160") == 0 || strcmp(mode.name, "3840x2160") == 0) && mode_vrefresh(&mode) >= 30) {
+					continue; 
+				}
+				if (strcmp(mode.name, "3840x2160") == 0 && mode_vrefresh(&mode) == 30) {
+					ofxRPI4Window::mode_idx = i;
+					break;
+				}
+			} else {
+				ofxRPI4Window::mode_idx = i;	
+				break;
+			}
 		}
 	}
+
 	if (connector->encoder_id) {
 		drmModeEncoder* encoder_tmp = NULL;
 		encoder_tmp = drmModeGetEncoder(device, connector->encoder_id);
@@ -1252,7 +1261,23 @@ bool ofxRPI4Window::InitDRM()
 			drmModeFreeEncoder(encoder_tmp);
 		}
 	}
-	if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
+	if(ofxRPI4Window::mode_idx!= -1) {
+		mode = connector->modes[ofxRPI4Window::mode_idx];
+		if (ofxRPI4Window::bit_depth == 10) {
+			if ((strcmp(mode.name, "4096x2160") == 0 || strcmp(mode.name, "3840x2160") == 0) && mode_vrefresh(&mode) >= 30) { 
+				for (int i=0;i<connector->count_modes;i++) {
+					mode = connector->modes[i];
+		
+					if (strcmp(mode.name, "3840x2160") == 0 && mode_vrefresh(&mode) == 30) {
+						ofxRPI4Window::mode_idx = i;
+					break;
+					}
+				}
+
+			}
+		
+		}
+	}
 	//End BiasiLinux patch for compatiblity with old version
     ofLog() << "DRM: Current Mode Index " << ofxRPI4Window::mode_idx;
    
@@ -1448,7 +1473,7 @@ int ofxRPI4Window::isDoVi = 0;
 int ofxRPI4Window::is_std_DoVi = 0;
 int ofxRPI4Window::bit_depth = 0;
 int ofxRPI4Window::mode_idx = 0;
-//int ofxRPI4Window::dv_map_mode = 0;
+int ofxRPI4Window::dv_profile = 2;
 int ofxRPI4Window::dv_status = 0;
 int ofxRPI4Window::dv_interface = 0;
 //int ofxRPI4Window::dv_minpq = 0;
@@ -1636,7 +1661,6 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		uniform int color_format;
 		uniform int rgb_quant_range;
 		uniform int is_image;
-		uniform int is_std_DoVi;
 		uniform sampler2D tex0;
 		uniform vec2 resolution;
 		in vec2 texCoordVarying; 
@@ -1659,9 +1683,6 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			float coeffs[5][3];
 			coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
 			coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
-			coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
-			coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
-			coeffs[4] = float[](0.0, 0.0, 0.0); //dovi rgb2 coeff
 			float Y, Y1, Y2, Cb, Cr, a;
 			int R1, G1, B1, R2, G2, B2;
 			float d,e,f1,f2,scale, normalizer;
@@ -1801,6 +1822,8 @@ void ofxRPI4Window::dovi_pattern_shader()
 	//	uniform int rgb_quant_range;
 	//	uniform int is_image;
 	//	uniform int is_std_DoVi;
+		uniform vec3 coeffs_num;
+		uniform vec3 coeffs_div;
 		uniform sampler2D tex0;
 		uniform vec2 resolution;
 		in vec2 texCoordVarying; 
@@ -1820,10 +1843,10 @@ void ofxRPI4Window::dovi_pattern_shader()
 			int R1, G1, B1, R2, G2, B2;
 	
 				/* YCrCb422 matrix */
-				Y1 = round(0.2126 * float(int(rgb1.r*256.0)<<4) + 0.7152* float(int(rgb1.g*256.0)<<4) + 0.0722 * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
-				Cb = round((((-0.2126/1.8556) * float(int(rgb1.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb1.g*256.0)<<4) + 0.5 * float(int(rgb1.b*256.0)<<4) + (-0.2126/1.8556) * float(int(rgb2.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb2.g*256.0)<<4) + 0.5 * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
-				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + 0.2126 * float(int(rgb2.r*256.0)<<4) + 0.7152 * float(int(rgb2.g*256.0)<<4) + 0.0722 * float(int(rgb2.b*256.0)<<4));
-				Cr = round(((0.5 * float(int(rgb1.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb1.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb1.b*256.0)<<4) + 0.5 * float(int(rgb2.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb2.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+				Y1 = round(coeffs_num.x * float(int(rgb1.r*256.0)<<4) + coeffs_num.y* float(int(rgb1.g*256.0)<<4) + coeffs_num.z * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+				Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*256.0)<<4) + coeffs_div.z * float(int(rgb1.b*256.0)<<4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*256.0)<<4) + coeffs_div.z * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + coeffs_num.x * float(int(rgb2.r*256.0)<<4) + coeffs_num.y * float(int(rgb2.g*256.0)<<4) + coeffs_num.z * float(int(rgb2.b*256.0)<<4));
+				Cr = round(((coeffs_div.z * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*256.0)<<4) + coeffs_div.z * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
 				a = 1.0;
 				/* Pack YUV for tunneling -- to do?? */
 			
@@ -1879,6 +1902,8 @@ void ofxRPI4Window::dovi_image_shader()
 	//	uniform int is_image;
 		uniform sampler2D tex0;
 		uniform vec2 resolution;
+		uniform vec3 coeffs_num;
+		uniform vec3 coeffs_div;
 		in vec2 texCoordVarying; 
 		out vec4 outputColor;
 		
@@ -1910,10 +1935,10 @@ void ofxRPI4Window::dovi_image_shader()
 
 			//	scale =  256.0;
 				/* YCrCb422 matrix */
-				Y1 = round(0.2126 * float(int(rgb1.r*256.0)<<4) + 0.7152* float(int(rgb1.g*256.0)<<4) + 0.0722 * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
-				Cb = round((((-0.2126/1.8556) * float(int(rgb1.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb1.g*256.0)<<4) + 0.5 * float(int(rgb1.b*256.0)<<4) + (-0.2126/1.8556) * float(int(rgb2.r*256.0)<<4) - (0.7152/1.8556) * float(int(rgb2.g*256.0)<<4) + 0.5 * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
-				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + 0.2126 * float(int(rgb2.r*256.0)<<4) + 0.7152 * float(int(rgb2.g*256.0)<<4) + 0.0722 * float(int(rgb2.b*256.0)<<4));
-				Cr = round(((0.5 * float(int(rgb1.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb1.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb1.b*256.0)<<4) + 0.5 * float(int(rgb2.r*256.0)<<4) - (0.7152/1.5748) * float(int(rgb2.g*256.0)<<4) - (0.0722/1.5748) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+				Y1 = round(coeffs_num.x * float(int(rgb1.r*256.0)<<4) + coeffs_num.y* float(int(rgb1.g*256.0)<<4) + coeffs_num.z * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+				Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*256.0)<<4) + coeffs_div.z * float(int(rgb1.b*256.0)<<4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*256.0)<<4) + coeffs_div.z * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + coeffs_num.x * float(int(rgb2.r*256.0)<<4) + coeffs_num.y * float(int(rgb2.g*256.0)<<4) + coeffs_num.z * float(int(rgb2.b*256.0)<<4));
+				Cr = round(((coeffs_div.z * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*256.0)<<4) + coeffs_div.z * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
 				a = 1.0;
 				/* Pack YUV for tunneling -- to do?? */
 			
@@ -2152,18 +2177,17 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.output_format != 0 && !shader_init) { 
-	//	  ofShader shader;
-	//	  shader.load("rgb2ycbcr");
-	//	  shader_init=0;
+		if (avi_info.output_format != 0 && shader_init) { 
+
 			rgb2ycbcr_shader();
 		}
-		if (is_std_DoVi && !shader_init) {
+		if (is_std_DoVi && shader_init) {
 			if (colorspace_on) {
 				dovi_pattern_shader();
 			} else {
 				dovi_image_shader();
 			}
+			shader_init =0;
 		}
 		EGL_info();	
 		ofLog() << "GBM: - initialized GBM";	
@@ -2697,7 +2721,7 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.output_format != 0 && !shader_init) { 
+		if (avi_info.output_format != 0 && shader_init) { 
 
 			rgb2ycbcr_shader();
 		}
@@ -2706,7 +2730,8 @@ int ret;
 				dovi_pattern_shader();
 			} else {
 				dovi_image_shader();
-			}
+			} 
+			//			shader_init =0;
 		}
 
    EGL_info();   

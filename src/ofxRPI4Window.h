@@ -311,7 +311,7 @@ public:
 	static int hdr_primaries; 
 	static int bit_depth;
 	static int mode_idx;
-//	static int dv_map_mode;	
+	static int dv_profile;	
 	static int dv_status;
 	static int dv_interface; 
 //	static int dv_minpq; 
