@@ -1963,7 +1963,7 @@ void ofxRPI4Window::HDRWindowSetup()
 	if (ofxRPI4Window::bit_depth == 10) {
 		if ((strcmp(mode.name, "4096x2160") == 0 || strcmp(mode.name, "3840x2160") == 0) && mode_vrefresh(&mode) >= 30) { 
 			mode = mode_3840x2160_30;
-			ofLogError() << "DRM: - Detected 4k modeDetected 4k mode 30Hz... changed resolution to  " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
+			ofLogError() << "DRM: - Detected 4k mode > 30Hz... changed resolution to  " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
 		}
 		
 	}
