@@ -1971,7 +1971,7 @@ void ofxRPI4Window::HDRWindowSetup()
 				//}
 			//}
 			mode = mode_3840x2160_30;
-			ofLogError() << "DRM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
+			ofLogError() << "DRM: - 4k mode > 30Hz...changed resolution to " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
 		}
 		
 	}
