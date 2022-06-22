@@ -1,4 +1,4 @@
-#include "ofxRPI4Window.h"
+#Include "ofxRPI4Window.h"
 #include "igt_edid.h"
 
 #include <fcntl.h>
@@ -1958,6 +1958,24 @@ void ofxRPI4Window::HDRWindowSetup()
 		ofLogError() << "GBM: - failed to create device: " << gbmDevice; 
 
 	}
+
+
+	if (ofxRPI4Window::bit_depth == 10) {
+		if ((strcmp(mode.name, "4096x2160") == 0 || strcmp(mode.name, "3840x2160") == 0) && mode_vrefresh(&mode) >= 30) { 
+			//for (int i=0;i<connector->count_modes;i++) {
+			//	mode = connector->modes[i];
+		
+			//	if (strcmp(mode.name, "3840x2160") == 0 && mode_vrefresh(&mode) == 30) {
+				//	ofxRPI4Window::mode_idx = i;
+				//break;
+				//}
+			//}
+			mode = mode_3840x2160_30;
+			ofLogError() << "DRM: - created surface with size " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
+		}
+		
+	}
+
 #if 1
 #if defined(HAS_GBM_MODIFIERS)
 	if (num_modifiers > 0)

@@ -203,6 +203,16 @@ static const DisplayChromacities DisplayChromacityList[] =
 	{ 0.67030, 0.32970, 0.26060, 0.67320, 0.14420, 0.05120, 0.31270, 0.32900 }, //videoforge dovi ??
 };
 
+static const drmModeModeInfo mode_3840x2160_30 = {
+	297000,
+	3840, 4016, 4104, 4400, 0,
+	2160, 2168, 2178, 2250, 0,
+	30,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+	DRM_MODE_TYPE_DRIVER,
+	"3840x2160"
+};
+
 class ofxRPI4Window : public ofAppBaseGLESWindow
 {
 public:
