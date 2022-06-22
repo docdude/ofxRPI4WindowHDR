@@ -1971,7 +1971,7 @@ void ofxRPI4Window::HDRWindowSetup()
 				//}
 			//}
 			mode = mode_3840x2160_30;
-			ofLogError() << "DRM: - 4k mode > 30Hz...changed resolution to " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
+			ofLogError() << "DRM: - Detected 4k mode > 30Hz...changed resolution to " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
 		}
 		
 	}
@@ -2035,7 +2035,7 @@ void ofxRPI4Window::HDRWindowSetup()
     {
         ofLogError() << "No EGL configs to choose from";
     }
-    printf("EGL has %d configs\n", count);
+    ofLog() <<"EGL has " << count << " configs";
 
 
 	EGLConfig *configs = (EGLConfig *)malloc(count * sizeof *configs);
@@ -2061,8 +2061,7 @@ void ofxRPI4Window::HDRWindowSetup()
 		//EGLint visualId = GBM_FORMAT_RGBX1010102; //??HDR  
 	EGLint visualId = GBM_FORMAT_ABGR2101010;
 
-
-    PrintConfigs(display);
+	if (ofGetLogLevel() == 0) PrintConfigs(display);
 	 
     EGLConfig config = NULL;
         
@@ -2282,7 +2281,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
     {
         ofLogError() << "No EGL configs to choose from";
     }
-    printf("EGL has %d configs\n", count);
+    ofLog() <<"EGL has " << count << " configs";
 
 
 	EGLConfig *configs = (EGLConfig *)malloc(count * sizeof *configs);
@@ -2315,7 +2314,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 //    for (i = 0; i < count; i++) {
 //	printConfigInfo(i, display, &configs[i]);
  //   }
-    PrintConfigs(display);
+	if (ofGetLogLevel() == 0) PrintConfigs(display);
 	 
     EGLConfig config = NULL;
         
@@ -2557,7 +2556,7 @@ int ret;
     {
         ofLogError() << "No EGL configs to choose from";
     }
-    printf("EGL has %d configs\n", count);
+    ofLog() <<"EGL has " << count << " configs";
 
 
 	EGLConfig *configs = (EGLConfig *)malloc(count * sizeof *configs);
@@ -2576,8 +2575,8 @@ int ret;
 
       
 
-    PrintConfigs(display);
-	 
+	if (ofGetLogLevel() == 0) PrintConfigs(display);
+	
     EGLConfig config = NULL;
         
         
