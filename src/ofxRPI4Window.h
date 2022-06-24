@@ -213,6 +213,17 @@ static const drmModeModeInfo mode_3840x2160_30 = {
 	"3840x2160"
 };
 
+
+static const drmModeModeInfo mode_4096x2160_30 = {
+	297000,
+	4096, 4184, 4272, 4400, 0,
+	2160, 2168, 2178, 2250, 0,
+	30,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+	DRM_MODE_TYPE_DRIVER,
+	"4096x2160"
+};
+
 class ofxRPI4Window : public ofAppBaseGLESWindow
 {
 public:

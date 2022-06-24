@@ -1459,7 +1459,7 @@ int ofxRPI4Window::hdr_primaries=2;
 avi_infoframe ofxRPI4Window::avi_info;
 drm_hdr_output_metadata ofxRPI4Window::hdr_metadata;
 int ofxRPI4Window::colorspace_on = 0;
-int ofxRPI4Window::shader_init = 1;
+int ofxRPI4Window::shader_init = 0;
 ofShader ofxRPI4Window::shader;
 
 void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
@@ -1610,6 +1610,77 @@ void ofxRPI4Window::EGL_create_surface(EGLint attribs[], EGLConfig config)
 	}
 }
 #if 1
+void ofxRPI4Window::rgb2ycbcr_shader()	 
+{
+	ofShaderSettings settings;
+	settings.shaderSources[GL_VERTEX_SHADER] = R"(
+		#version 310 es
+		uniform mat4 modelViewProjectionMatrix;
+		in vec4 position;
+		in vec2 texcoord;
+		out vec2 texCoordVarying;
+		void main(){
+			texCoordVarying = texcoord;
+			gl_Position = modelViewProjectionMatrix * position;
+		}
+
+	)"; 
+	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
+		#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+
+		uniform int color_format;
+
+		uniform int is_image;
+		uniform int scalar1;
+		uniform int scalar2;
+		uniform int offset;
+		uniform int scale;
+		uniform int normalizer;
+		uniform vec3 coeffs_num;
+		uniform vec3 coeffs_div;
+		uniform sampler2D tex0;
+		uniform vec2 resolution;
+		in vec2 texCoordVarying; 
+		out vec4 outputColor;
+		
+		vec4 RGBtoYCbCr(vec4 rgb) 
+		{		
+			float Y, Cb, Cr, a;
+			Y = round(coeffs_num.x * rgb.r*float(scale) + coeffs_num.y* rgb.g*float(scale) + coeffs_num.z * rgb.b*float(scale));
+			Cb = round(((-coeffs_num.x/coeffs_div.x) * rgb.r*float(scale) - (coeffs_num.y/coeffs_div.x) * rgb.g*float(scale) + coeffs_div.z * rgb.b*float(scale))*float(scalar1)/float(scalar2) + float(offset)); // Chrominance Blue
+			Cr = round((coeffs_div.z * rgb.r*float(scale) - (coeffs_num.y/coeffs_div.y) * rgb.g*float(scale) - (coeffs_num.z/coeffs_div.y) * rgb.b*float(scale))*float(scalar1)/float(scalar2) + float(offset)); // Chrominance Red
+			a = 1.0;
+ 
+		
+		//	     Y = dot(rgb.rgb, coeffs_num*64.0625);
+		//	    Cb = dot(rgb.rgb, vec3(-coeffs_num.x/coeffs_div.x,-coeffs_num.y/coeffs_div.x, coeffs_div.z)) + 0.5;
+		//	    Cr = dot(rgb.rgb, vec3(coeffs_div.z, -coeffs_num.y/coeffs_div.y, -coeffs_num.z/coeffs_div.y)) + 0.5;	
+
+			if (color_format == 1) {
+				return vec4(Cb/float(normalizer),Cr/float(normalizer),Y/float(normalizer), a);
+			}
+			if (color_format == 2) {
+				return vec4(Y/float(normalizer),Cb/float(normalizer),Cr/float(normalizer), a);
+		//	return vec4(Y,Cb,Cr, a); 
+			}
+		}
+
+		void main() {
+			if (is_image == 1) {
+				vec4 color = texture(tex0, texCoordVarying);
+				outputColor = RGBtoYCbCr(color.rgba);
+			} else {
+				outputColor = RGBtoYCbCr(globalColor.rgba);
+			}
+		}
+		
+	)";
+	shader.setup(settings);	
+}
+#endif
+#if 0
 void ofxRPI4Window::rgb2ycbcr_shader()
 {  //  ofShader shader;    
 
@@ -1771,6 +1842,7 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 	shader.setup(settings);	
 //	dovi_shader.setup(settings);
 }
+#endif
 
 void ofxRPI4Window::dovi_pattern_shader()
 {  //  ofShader shader;    
@@ -1853,7 +1925,7 @@ void ofxRPI4Window::dovi_pattern_shader()
 	shader.setup(settings);	
 //	dovi_shader.setup(settings);
 }
-#endif
+
 void ofxRPI4Window::dovi_image_shader()
 {  //  ofShader shader;    
 
@@ -1970,7 +2042,8 @@ void ofxRPI4Window::HDRWindowSetup()
 				//break;
 				//}
 			//}
-			mode = mode_3840x2160_30;
+			//mode = mode_3840x2160_30;
+			mode = mode_4096x2160_30;
 			ofLogError() << "DRM: - Detected 4k mode > 30Hz...changed resolution to " << mode.hdisplay << "x" << mode.vdisplay << "@" << mode_vrefresh(&mode) <<"Hz";
 		}
 		
@@ -2168,11 +2241,11 @@ void ofxRPI4Window::HDRWindowSetup()
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.output_format != 0 && !shader_init) { 
+		if (avi_info.output_format != 0 && shader_init) { 
 
 			rgb2ycbcr_shader();
 		}
-		if (is_std_DoVi && !shader_init) {
+		if (is_std_DoVi && shader_init) {
 			if (colorspace_on) {
 				dovi_pattern_shader();
 			} else {
@@ -2712,18 +2785,17 @@ int ret;
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
         static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
-		if (avi_info.output_format != 0 && !shader_init) { 
+		if (avi_info.output_format != 0 && shader_init) { 
 
 			rgb2ycbcr_shader();
-			//shader_init=1;
+
 		}
-		if (is_std_DoVi && !shader_init) {
+		if (is_std_DoVi && shader_init) {
 			if (colorspace_on) {
 				dovi_pattern_shader();
 			} else {
 				dovi_image_shader();
 			} 
-			//shader_init=1;
 		}
 
    EGL_info();   
@@ -2789,7 +2861,8 @@ void ofxRPI4Window::update()
 			if ((bit_depth >= 8) && (bit_depth <= 10) && (avi_info.max_bpc == 10)) {
 				ofLog() << "DRM: updating HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-				if (avi_info.rgb_quant_range == 1)
+//				if (avi_info.rgb_quant_range == 1)
+				if (!ofxRPI4Window::shader_init && ofxRPI4Window::avi_info.output_format != 0)
 					shader_init = 1;
 				HDRWindowSetup();
 			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
@@ -2799,7 +2872,8 @@ void ofxRPI4Window::update()
 			} else {
 				ofLog() << "DRM: updating HDR(8 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-				if (avi_info.rgb_quant_range == 1)
+//				if (avi_info.rgb_quant_range == 1)
+				if (!ofxRPI4Window::shader_init && ofxRPI4Window::avi_info.output_format != 0)
 					shader_init = 1;
 				SDRWindowSetup();				
 			}	
@@ -2824,13 +2898,13 @@ void ofxRPI4Window::update()
 		 	if (bit_depth == 10) {
 				ofLog() << "DRM: updating Standard DoVi(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-				if (avi_info.rgb_quant_range == 2)
+				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 2)
 					shader_init =1;
 				HDRWindowSetup();
 			} else {
 				ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-				if (avi_info.rgb_quant_range == 2)
+				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 2)
 					shader_init = 1;				
 				SDRWindowSetup();
 			}
@@ -2840,12 +2914,14 @@ void ofxRPI4Window::update()
 		 	if (bit_depth == 10) {
 				ofLog() << "DRM: updating SDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-				if (avi_info.rgb_quant_range == 1)
+//				if (avi_info.rgb_quant_range == 1)
+				if (!ofxRPI4Window::shader_init && ofxRPI4Window::avi_info.output_format != 0)
 					shader_init = 1;
 				HDRWindowSetup();
 			} else {
 				ofLog() << "DRM: updating SDR(8 bit) window/surface"; 
-				if (avi_info.rgb_quant_range == 1)
+//				if (avi_info.rgb_quant_range == 1)
+				if (!ofxRPI4Window::shader_init && ofxRPI4Window::avi_info.output_format != 0)
 					shader_init = 1;
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
 				SDRWindowSetup();
@@ -2854,7 +2930,7 @@ void ofxRPI4Window::update()
 		//	flip = 0;
 		current_bit_depth = bit_depth;
 		colorspace_status = colorspace_on;
-	}
+	} 
 }
 
 int ofxRPI4Window::getWidth()
@@ -3703,7 +3779,7 @@ void ofxRPI4Window::draw()
         if( bEnableSetupScreen )
         {
             currentRenderer->setupScreen();
-            //bEnableSetupScreen = false;
+          //bEnableSetupScreen = false;
         }
         
         
