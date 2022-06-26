@@ -224,6 +224,10 @@ static const drmModeModeInfo mode_4096x2160_30 = {
 	"4096x2160"
 };
 
+#ifndef MODE_4K_10bit
+#define MODE_4K_10bit mode_3840x2160_30
+#endif
+
 class ofxRPI4Window : public ofAppBaseGLESWindow
 {
 public:
