@@ -1237,7 +1237,7 @@ bool ofxRPI4Window::InitDRM()
 		drmModeModeInfo *current_mode = &connector->modes[i];
 		if (current_mode->type & DRM_MODE_TYPE_USERDEF) {
 			mode = connector->modes[i];
-			ofxRPI4Window::mode_idx = i;	
+//			ofxRPI4Window::mode_idx = i;	
 			break;
 		}
 	}
