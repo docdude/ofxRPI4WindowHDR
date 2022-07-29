@@ -781,7 +781,7 @@ ofxRPI4Window::drm_mode_atomic_set_property(int drm_fd, drmModeAtomicReq *freq, 
 		}	
 
 	}
-	drmModeFreeProperty(prop);
+//	drmModeFreeProperty(prop);
 
 	if (last_req) {
 		success = drmModeAtomicCommit(drm_fd, req, flags, NULL);
@@ -1254,7 +1254,7 @@ bool ofxRPI4Window::InitDRM()
 	if(ofxRPI4Window::mode_idx!= -1) mode = connector->modes[ofxRPI4Window::mode_idx];
 
 	//End BiasiLinux patch for compatiblity with old version
-//    ofLog() << "DRM: Current Mode Index " << ofxRPI4Window::mode_idx;
+    ofLog() << "DRM: Current Mode Index " << ofxRPI4Window::mode_idx;
    
     currentWindowRect = ofRectangle(0, 0, mode.hdisplay, mode.vdisplay);
     ofLog() << "DRM: currentWindowRect: " << currentWindowRect;
@@ -1633,11 +1633,11 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		uniform int color_format;
 
 		uniform int is_image;
-		uniform int scalar1;
-		uniform int scalar2;
-		uniform int offset;
-		uniform int scale;
-		uniform int normalizer;
+		uniform float scalar1;
+		uniform float scalar2;
+		uniform float offset;
+		uniform float scale;
+		uniform float normalizer;
 		uniform vec3 coeffs_num;
 		uniform vec3 coeffs_div;
 		uniform sampler2D tex0;
@@ -1647,23 +1647,55 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 		
 		vec4 RGBtoYCbCr(vec4 rgb) 
 		{		
-			float Y, Cb, Cr, a;
-			Y = round(coeffs_num.x * rgb.r*float(scale) + coeffs_num.y* rgb.g*float(scale) + coeffs_num.z * rgb.b*float(scale));
-			Cb = round(((-coeffs_num.x/coeffs_div.x) * rgb.r*float(scale) - (coeffs_num.y/coeffs_div.x) * rgb.g*float(scale) + coeffs_div.z * rgb.b*float(scale))*float(scalar1)/float(scalar2) + float(offset)); // Chrominance Blue
-			Cr = round((coeffs_div.z * rgb.r*float(scale) - (coeffs_num.y/coeffs_div.y) * rgb.g*float(scale) - (coeffs_num.z/coeffs_div.y) * rgb.b*float(scale))*float(scalar1)/float(scalar2) + float(offset)); // Chrominance Red
-			a = 1.0;
- 
-		
-		//	     Y = dot(rgb.rgb, coeffs_num*64.0625);
-		//	    Cb = dot(rgb.rgb, vec3(-coeffs_num.x/coeffs_div.x,-coeffs_num.y/coeffs_div.x, coeffs_div.z)) + 0.5;
-		//	    Cr = dot(rgb.rgb, vec3(coeffs_div.z, -coeffs_num.y/coeffs_div.y, -coeffs_num.z/coeffs_div.y)) + 0.5;	
+			float Y, Y1, Y2, Cb, Cr, a;
 
+ 		//	vec4 rgb1 = globalColor;
+		//	vec4 rgb2 = globalColor;
+
+
+			 Y = round(coeffs_num.x * rgb.r*scale + coeffs_num.y * rgb.g*scale + coeffs_num.z * rgb.b*scale);
+			Cb = round(((-coeffs_num.x/coeffs_div.x) * rgb.r*scale - (coeffs_num.y/coeffs_div.x) * rgb.g*scale + coeffs_div.z * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Blue
+			Cr = round((coeffs_div.z * rgb.r*scale - (coeffs_num.y/coeffs_div.y) * rgb.g*scale - (coeffs_num.z/coeffs_div.y) * rgb.b*scale)*scalar1/scalar2 + offset); // Chrominance Red
+			a = 1.0;
 			if (color_format == 1) {
-				return vec4(Cb/float(normalizer),Cr/float(normalizer),Y/float(normalizer), a);
+
+				return vec4(Cb/normalizer,Cr/normalizer,Y/normalizer, a);
 			}
 			if (color_format == 2) {
-				return vec4(Y/float(normalizer),Cb/float(normalizer),Cr/float(normalizer), a);
-		//	return vec4(Y,Cb,Cr, a); 
+				/*
+			
+				Y1 = round(coeffs_num.x * float(int(rgb1.r*float(scale))>>4) + coeffs_num.y* float(int(rgb1.g*float(scale))>>4) + coeffs_num.z * float(int(rgb1.b*float(scale))>>4) + 0.0 * float(int(rgb2.r*float(scale))>>4) + 0.0 * float(int(rgb2.g*float(scale))>>4) + 0.0 * float(int(rgb2.b*float(scale))>>4));
+				Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*float(scale))>>4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*float(scale))>>4) + coeffs_div.z * float(int(rgb1.b*float(scale))>>4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*float(scale))>>4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*float(scale))>>4) + coeffs_div.z * float(int(rgb2.b*float(scale))>>4))*float(scalar1)/float(scalar2))/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*float(scale))>>4) + 0.0 * float(int(rgb1.g*float(scale))>>4) + 0.0 * float(int(rgb1.b*float(scale))>>4) + coeffs_num.x * float(int(rgb2.r*float(scale))>>4) + coeffs_num.y * float(int(rgb2.g*float(scale))>>4) + coeffs_num.z * float(int(rgb2.b*float(scale))>>4));
+				Cr = round(((coeffs_div.z * float(int(rgb1.r*float(scale))>>4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*float(scale))>>4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*float(scale))>>4) + coeffs_div.z * float(int(rgb2.r*float(scale))>>4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*float(scale))>>4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*float(scale))>>4))*float(scalar1)/float(scalar2))/2.0 + 2048.0); // Chrominance Red
+				a = 1.0;
+
+				int R1 = int(Y1) >> 4;  
+				int G1 = int(Cb) >> 4;
+				int B1 = int(Cr) >> 4;
+				int R2 = int(Y2) >> 4;  
+				int G2 = int(Cb) >> 4;
+				int B2 = int(Cr) >> 4;	
+
+				int R1 = int(Cb) >> 4;  
+				int G1 = int(Y1) >> 4;
+				int B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+				int R2 = int(Cr) >> 4;  
+				int G2 = int(Y2) >> 4;
+				int B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);	
+			
+				//even
+				if(mod(gl_FragCoord.x,2.0)<1.0) {
+	
+					return vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
+
+				// odd
+				} else {
+
+					return vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
+				}
+					*/
+				return vec4(Y/normalizer,Cb/normalizer,Cr/normalizer, a);
 			}
 		}
 
@@ -1744,11 +1776,11 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 			float offset  = float(128 << shift);
 
 			int idx;
-			if (rgb_quant_range == 1) {
+			if (rgb_quant_range == 2) {
 				scalar1=scalar_limit1;
 				scalar2=scalar_limit2;
 			}
-			if (rgb_quant_range == 2) {
+			if (rgb_quant_range == 1) {
 				scalar1=scalar_full1;
 				scalar2=scalar_full2;
 			}
@@ -1769,7 +1801,7 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 
 			}
 
-			normalizer = float((256 << shift) - 1);
+			normalizer = float((256 << shift) - 1); 
 		
 			if (bits == 10) {
 			   shift = 8; // for 10bit need to use 16bit scalar
@@ -1844,8 +1876,11 @@ void ofxRPI4Window::rgb2ycbcr_shader()
 }
 #endif
 
+#define _CONCAT(x,y) x y
+#define CONCAT(x,y) _CONCAT(x,y)
+
 void ofxRPI4Window::dovi_pattern_shader()
-{  //  ofShader shader;    
+{ 
 
 	ofShaderSettings settings;
 	settings.shaderSources[GL_VERTEX_SHADER] = R"(
@@ -1860,17 +1895,12 @@ void ofxRPI4Window::dovi_pattern_shader()
 		}
 
 	)";
-
-	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
+	//use FBO texture
+#ifdef USE_DOVI_FBO			
+	const char* RGB_SOURCE = R"(  
 		#version 310 es
 		precision highp float;
 		uniform vec4 globalColor;
-	//	uniform int bits;
-	//	uniform int colorimetry;
-	//	uniform int color_format;
-	//	uniform int rgb_quant_range;
-	//	uniform int is_image;
-	//	uniform int is_std_DoVi;
 		uniform vec3 coeffs_num;
 		uniform vec3 coeffs_div;
 		uniform sampler2D tex0;
@@ -1879,15 +1909,35 @@ void ofxRPI4Window::dovi_pattern_shader()
 		out vec4 outputColor;
 
 		void main() 
-		{		
+		{
+			
+			vec2 onePixel = vec2(1.0, 0.0) / resolution;
+			vec4 rgb1 = texture(tex0, texCoordVarying);
+			vec4 rgb2 = texture(tex0, texCoordVarying + onePixel);//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//neighbor rgb pixel;	
+
+	)";
+	//usr globalColor,  no FBO
+#else			
+	const char* RGB_SOURCE = R"(
+		#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+		uniform vec3 coeffs_num;
+		uniform vec3 coeffs_div;
+		uniform sampler2D tex0;
+		uniform vec2 resolution;
+		in vec2 texCoordVarying; 
+		out vec4 outputColor;
+
+		void main() 
+		{
+				
 			vec4 rgb1 = globalColor;
 			vec4 rgb2 = globalColor;
-		//	float coeffs[5][3];
-		//	coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
-		//	coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
-		//	coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
-		//	coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
-		//	coeffs[4] = float[](0.0, 0.0, 0.0); //dovi rgb2 coeff
+	)";
+#endif
+
+	const char* MAIN_BODY = R"(
 			float Y1, Y2, Cb, Cr, a;
 			int R1, G1, B1, R2, G2, B2;
 	
@@ -1920,14 +1970,67 @@ void ofxRPI4Window::dovi_pattern_shader()
 				}
 		} 
 	)";
-		
+
+	settings.shaderSources[GL_FRAGMENT_SHADER].append(RGB_SOURCE);  //=  R"(
+	settings.shaderSources[GL_FRAGMENT_SHADER].append(MAIN_BODY);
+	/*	#version 310 es
+		precision highp float;
+		uniform vec4 globalColor;
+		uniform vec3 coeffs_num;
+		uniform vec3 coeffs_div;
+		uniform sampler2D tex0;
+		uniform vec2 resolution;
+		in vec2 texCoordVarying; 
+		out vec4 outputColor;
+
+		void main() 
+		{
+			
+		//	vec2 onePixel = vec2(1.0, 0.0) / resolution;
+		//	vec4 rgb1 = texture(tex0, texCoordVarying);
+		//	vec4 rgb2 = texture(tex0, texCoordVarying + onePixel);//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//neighbor rgb pixel;	
+		//	vec4 rgb1 = globalColor;
+		//	vec4 rgb2 = globalColor;
+//			RGB_SOURCE;
+			float Y1, Y2, Cb, Cr, a;
+			int R1, G1, B1, R2, G2, B2;
+	
+	*/			/* YCrCb422 matrix */
+	/*			Y1 = round(coeffs_num.x * float(int(rgb1.r*256.0)<<4) + coeffs_num.y* float(int(rgb1.g*256.0)<<4) + coeffs_num.z * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+				Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*256.0)<<4) + coeffs_div.z * float(int(rgb1.b*256.0)<<4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*256.0)<<4) + coeffs_div.z * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + coeffs_num.x * float(int(rgb2.r*256.0)<<4) + coeffs_num.y * float(int(rgb2.g*256.0)<<4) + coeffs_num.z * float(int(rgb2.b*256.0)<<4));
+				Cr = round(((coeffs_div.z * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*256.0)<<4) + coeffs_div.z * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+				a = 1.0;
+	*/			/* Pack YUV for tunneling -- to do?? */
+			
+
+				/* Pack Dolby As RGB */
+	/*			R1 = int(Cb) >> 4;  
+				G1 = int(Y1) >> 4;
+				B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+				R2 = int(Cr) >> 4;  
+				G2 = int(Y2) >> 4;
+				B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);	
+				
+				//even
+				if(mod(gl_FragCoord.x,2.0)<1.0) {
+	
+					outputColor =  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
+
+				// odd
+				} else {
+
+					outputColor =  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
+				}
+		} 
+	)";
+	*/	
 	
 	shader.setup(settings);	
-//	dovi_shader.setup(settings);
 }
 
 void ofxRPI4Window::dovi_image_shader()
-{  //  ofShader shader;    
+{     
 
 	ofShaderSettings settings;
 	settings.shaderSources[GL_VERTEX_SHADER] = R"(
@@ -1946,9 +2049,6 @@ void ofxRPI4Window::dovi_image_shader()
 	settings.shaderSources[GL_FRAGMENT_SHADER] = R"(
 		#version 310 es
 		precision highp float;
-		uniform vec4 globalColor;
-
-	//	uniform int is_image;
 		uniform sampler2D tex0;
 		uniform vec2 resolution;
 		uniform vec3 coeffs_num;
@@ -1962,62 +2062,43 @@ void ofxRPI4Window::dovi_image_shader()
 
 			vec2 onePixel = vec2(1.0, 0.0) / resolution;
 			vec4 rgb1 = texture(tex0, texCoordVarying);
+			vec4 rgb2 = texture(tex0, texCoordVarying + onePixel);//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//neighbor rgb pixel;
 
-				//vec2 position = ( gl_FragCoord.xy / resolution.xy );
-			vec4 rgb2 = texture(tex0, texCoordVarying + onePixel);//vec4((gl_FragCoord.x+0.5)/u_resolution.x,gl_FragCoord.y/u_resolution.y,1.0,0.0);//rgb;
-				
-
-		//	float coeffs[5][3];
-		//	coeffs[0] = float[](0.2126, 0.7152, 0.0722); //BT709
-		//	coeffs[1] = float[](0.2627, 0.6780, 0.0593); //BT2020
-		//	coeffs[2] = float[](0.212630069, 0.715188177, 0.072181753);  //dovi BT709
-		//	coeffs[3] = float[](0.262710755, 0.6779981,	0.059291146); //dovi BT2020
-		//	coeffs[4] = float[](0.0, 0.0, 0.0); //dovi rgb2 coeff
 			float Y1, Y2, Cb, Cr, a;
 			int R1, G1, B1, R2, G2, B2;
-		//	float scale;
 
-
-
-
-
-
-			//	scale =  256.0;
-				/* YCrCb422 matrix */
-				Y1 = round(coeffs_num.x * float(int(rgb1.r*256.0)<<4) + coeffs_num.y* float(int(rgb1.g*256.0)<<4) + coeffs_num.z * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
-				Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*256.0)<<4) + coeffs_div.z * float(int(rgb1.b*256.0)<<4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*256.0)<<4) + coeffs_div.z * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
-				Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + coeffs_num.x * float(int(rgb2.r*256.0)<<4) + coeffs_num.y * float(int(rgb2.g*256.0)<<4) + coeffs_num.z * float(int(rgb2.b*256.0)<<4));
-				Cr = round(((coeffs_div.z * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*256.0)<<4) + coeffs_div.z * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
-				a = 1.0;
-				/* Pack YUV for tunneling -- to do?? */
+			/* YCrCb422 matrix */
+			Y1 = round(coeffs_num.x * float(int(rgb1.r*256.0)<<4) + coeffs_num.y* float(int(rgb1.g*256.0)<<4) + coeffs_num.z * float(int(rgb1.b*256.0)<<4) + 0.0 * float(int(rgb2.r*256.0)<<4) + 0.0 * float(int(rgb2.g*256.0)<<4) + 0.0 * float(int(rgb2.b*256.0)<<4));
+			Cb = round((((-coeffs_num.x/coeffs_div.x) * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb1.g*256.0)<<4) + coeffs_div.z * float(int(rgb1.b*256.0)<<4) + (-coeffs_num.x/coeffs_div.x) * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.x) * float(int(rgb2.g*256.0)<<4) + coeffs_div.z * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Blue
+			Y2 = round(0.0 * float(int(rgb1.r*256.0)<<4) + 0.0 * float(int(rgb1.g*256.0)<<4) + 0.0 * float(int(rgb1.b*256.0)<<4) + coeffs_num.x * float(int(rgb2.r*256.0)<<4) + coeffs_num.y * float(int(rgb2.g*256.0)<<4) + coeffs_num.z * float(int(rgb2.b*256.0)<<4));
+			Cr = round(((coeffs_div.z * float(int(rgb1.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb1.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb1.b*256.0)<<4) + coeffs_div.z * float(int(rgb2.r*256.0)<<4) - (coeffs_num.y/coeffs_div.y) * float(int(rgb2.g*256.0)<<4) - (coeffs_num.z/coeffs_div.y) * float(int(rgb2.b*256.0)<<4))*224.0/219.0)/2.0 + 2048.0); // Chrominance Red
+			a = 1.0;
+			/* Pack YUV for tunneling -- to do?? */
 			
 
-				/* Pack Dolby As RGB */
-				R1 = int(Cb) >> 4;  
-				G1 = int(Y1) >> 4;
-				B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
-				R2 = int(Cr) >> 4;  
-				G2 = int(Y2) >> 4;
-				B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);				
+			/* Pack Dolby As RGB */
+			R1 = int(Cb) >> 4;  
+			G1 = int(Y1) >> 4;
+			B1 = int(Y1) & 15 | ((int(Cb) & 15) << 4);
+			R2 = int(Cr) >> 4;  
+			G2 = int(Y2) >> 4;
+			B2 = int(Y2) & 15 | ((int(Cr) & 15) << 4);				
 
-				// even
-				if(mod(gl_FragCoord.x,2.0)<1.0) {
-	
-					outputColor =  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
+			// even
+			if(mod(gl_FragCoord.x,2.0)<1.0) {
+				outputColor =  vec4(float(R1)/255.0,float(G1)/255.0, float(B1)/255.0,a); 
 
 
-				// odd
-				} else {
-
-					outputColor =  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
-				}
+			// odd
+			} else {
+				outputColor =  vec4(float(R2)/255.0,float(G2)/255.0, float(B2)/255.0,a); 
+			}
 
 		} 
 	)";
 		 
 	
 	shader.setup(settings);	
-//	dovi_shader.setup(settings);
 }
 void ofxRPI4Window::HDRWindowSetup()
 {
@@ -2131,7 +2212,6 @@ void ofxRPI4Window::HDRWindowSetup()
 		EGL_COLOR_COMPONENT_TYPE_EXT, EGL_COLOR_COMPONENT_TYPE_FIXED_EXT, //EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT, 
 		EGL_NONE
 	};
-		//EGLint visualId = GBM_FORMAT_RGBX1010102; //??HDR  
 	EGLint visualId = GBM_FORMAT_ABGR2101010;
 
 	if (ofGetLogLevel() == 0) PrintConfigs(display);
@@ -2898,13 +2978,13 @@ void ofxRPI4Window::update()
 		 	if (bit_depth == 10) {
 				ofLog() << "DRM: updating Standard DoVi(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
-				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 2)
+				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 1)
 					shader_init =1;
 				HDRWindowSetup();
 			} else {
 				ofLog() << "DRM: updating Standard DoVi(8 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ARGB8888, SDRplaneId);
-				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 2)
+				if (!ofxRPI4Window::shader_init && avi_info.output_format == 0 && avi_info.rgb_quant_range == 1)
 					shader_init = 1;				
 				SDRWindowSetup();
 			}
@@ -3308,24 +3388,24 @@ void ofxRPI4Window::ResetConnectorProperties()
 	first_req = 1;
 					
     //set Colorimetry, set to default
-	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorimetry", &prop_id, &colorimetry, &prop);
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorspace", &prop_id, &colorimetry, &prop);
 
 	if (!ok || !(colorimetry >= 0)) {
 			ofLogError() << "Unable to find Colorimetry";
 	} else {
 	    /* set colorimetry to Default = 0 */
 		colorimetry = 0; 
-		drm_mode_atomic_set_property(device, req, "Colorimetry", connectorId, prop_id, colorimetry, prop, 0);
+		drm_mode_atomic_set_property(device, req, "Colorspace", connectorId, prop_id, colorimetry, prop, 0);
     }	
-	//set rgb_quant_range, set to full as default
-	ok = drm_mode_get_property(device, connectorId, DRM_MODE_OBJECT_CONNECTOR, "rgb quant range", &prop_id, &rgb_quant_range, &prop);
+	//set rgb_quant_range, set to auto as default
+	ok = drm_mode_get_property(device, connectorId, DRM_MODE_OBJECT_CONNECTOR, "Broadcast RGB", &prop_id, &rgb_quant_range, &prop);
 
 	if (!ok || !(rgb_quant_range >=0)) { 
 		ofLogError() << "DRM: Unable to find RGB Quant Range";
 	} else {
 		
-		rgb_quant_range = 2; //set to full as default
-		drm_mode_atomic_set_property(device, req, "rgb quant range" , connectorId, prop_id, rgb_quant_range, prop, 0);
+		rgb_quant_range = 0; //set to auto as default
+		drm_mode_atomic_set_property(device, req, "Broadcast RGB" , connectorId, prop_id, rgb_quant_range, prop, 0);
 	}		
 
     //disable HDR Metadata
@@ -3448,7 +3528,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			updateDoVi_Infoframe(dv_status, dv_interface); // Enable Standard DOVI infoframe
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = avi_info.colorimetry; //Default
-			avi_infoframe.rgb_quant_range = 2; //Full range [0-255]
+			avi_infoframe.rgb_quant_range = 1; //Full range [0-255]
 			avi_infoframe.output_format = avi_info.output_format; //0 RGB444; //YCrCb422, doesnt work with YCrCb420
 			avi_infoframe.max_bpc = avi_info.max_bpc; // only works in 8 bit
 			avi_infoframe.c_enc = 2; //ITU-R BT.2020 YCbCr 
@@ -3461,7 +3541,7 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
 			avi_infoframe.colorimetry = avi_info.colorimetry; //Default
-			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range;  //Full range [0-255] = 2
+			avi_infoframe.rgb_quant_range = avi_info.rgb_quant_range;  //Full range [0-255] = 1
 			avi_infoframe.output_format = avi_info.output_format; //1; //YCrCb444
 			avi_infoframe.max_bpc = avi_info.max_bpc; //8 bit
 			avi_infoframe.c_enc = avi_info.c_enc; //ITU-R BT.709 YCbCr  set to 1
@@ -3692,13 +3772,13 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 	first_req = 1; // allocate for atomic requests
 	
 	/* set colorimtery */	
-	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorimetry", &prop_id, &colorimetry, &prop);
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorspace", &prop_id, &colorimetry, &prop);
 	
 	if (!ok || !(colorimetry >= 0)) {
 		ofLogError() << "Unable to find Colorspace";
 	} else {
 		colorimetry = avi_infoframe.colorimetry; 
-		drm_mode_atomic_set_property(device, req, "Colorimetry" , connectorId,	prop_id, colorimetry, prop, 0);
+		drm_mode_atomic_set_property(device, req, "Colorspace" , connectorId,	prop_id, colorimetry, prop, 0);
     }			
 	
 	/* set output format */
@@ -3722,13 +3802,13 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 	}
 	
 	/* set rgb quant range */
-	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "rgb quant range", &prop_id, &rgb_quant_range, &prop);
+	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Broadcast RGB", &prop_id, &rgb_quant_range, &prop);
 
 	if (!ok || !(rgb_quant_range >=0)) { 
 		ofLogError() << "DRM: Unable to find RGB Quant Range";
 	} else {	
 		rgb_quant_range = avi_infoframe.rgb_quant_range;
-		drm_mode_atomic_set_property(device, req, "rgb quant range", connectorId, prop_id, rgb_quant_range, prop, 0);
+		drm_mode_atomic_set_property(device, req, "Broadcast RGB", connectorId, prop_id, rgb_quant_range, prop, 0);
 	}	
 
 	ofLog() << "DRM: Setting plane properties";

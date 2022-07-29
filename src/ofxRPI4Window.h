@@ -228,6 +228,11 @@ static const drmModeModeInfo mode_4096x2160_30 = {
 #define MODE_4K_10bit mode_3840x2160_30
 #endif
 
+#ifndef USE_DOVI_FBO
+#undef USE_DOVI_FBO
+#else 
+#define USE_DOVI_FBO
+#endif
 class ofxRPI4Window : public ofAppBaseGLESWindow
 {
 public:
