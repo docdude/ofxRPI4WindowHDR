@@ -1959,7 +1959,7 @@ void ofxRPI4Window::HDRWindowSetup()
 
 	}
 
-
+#if 0
 	if (ofxRPI4Window::bit_depth == 10) {
 		if ((strcmp(mode.name, "4096x2160") == 0 || strcmp(mode.name, "3840x2160") == 0) && mode_vrefresh(&mode) >= 30) { 
 			mode = mode_3840x2160_30;
@@ -1967,7 +1967,7 @@ void ofxRPI4Window::HDRWindowSetup()
 		}
 		
 	}
-
+#endif
 #if 1
 #if defined(HAS_GBM_MODIFIERS)
 	if (num_modifiers > 0)
