@@ -298,7 +298,7 @@ struct edid_cea {
 	uint8_t revision;
 	uint8_t dtd_start;
 	uint8_t misc;
-	char data[123]; /* DBC & DTD collection, padded with zeros */
+	unsigned char data[123]; /* DBC & DTD collection, padded with zeros */
 	uint8_t checksum;
 } __attribute__((packed));
 

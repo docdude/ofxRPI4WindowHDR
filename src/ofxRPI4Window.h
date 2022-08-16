@@ -17,8 +17,8 @@
 #include <drm_fourcc.h>
 #include <gbm.h>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+//#include <GLES2/gl2.h>
+//#include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
@@ -96,6 +96,7 @@ using namespace std;
 #define DOVI_VIDEO_DATA_BLOCK 0x1
 #define HDR10_PLUS_DATA_BLOCK 0x1 
 #define HDR_DYNAMIC_METADATA_BLOCK 0x7
+#define VENDOR_BLOCK    0x03
 #define HDR_STATIC_METADATA_BLOCK       0x06
 #define USE_EXTENDED_TAG		0x07
 
@@ -226,6 +227,14 @@ static const drmModeModeInfo mode_4096x2160_30 = {
 
 #ifndef MODE_4K_10bit
 #define MODE_4K_10bit mode_3840x2160_30
+#else
+#define MODE_4K_10bit mode_4096x2160_30	
+#endif
+
+#ifndef MODE_4K_8bit
+#define MODE_4K_8bit mode_3840x2160_30
+#else 
+#define MODE_4K_8bit mode_4096x2160_30	
 #endif
 
 #ifndef USE_DOVI_FBO
@@ -355,6 +364,7 @@ public:
 	static int shader_init;
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
+	void EGL_create_context(EGLConfig config, int major, int minor);
 	
 	/* shaders */
 	static void rgb2ycbcr_shader();
@@ -365,8 +375,11 @@ public:
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);
 	void in_formats_info(int fd, uint32_t blob_id);
-	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
-	bool cta_is_dovi_video_block(const char *edid_ext);
+	bool cta_is_hdr_static_metadata_block(const unsigned char *edid_ext);
+	bool cta_is_dovi_video_block(const unsigned char *edid_ext);
+	/* Parse EDID for HDMI 2.0 support report if display supports */
+	bool supportsHDMI2_0 = false;
+	bool cta_is_hf_vsdb_block(const unsigned char *edid_ext);
 
 	/* Set DRM Plane swap between HDR and SDR planes */
 	void FlipPage(bool flip, uint32_t fb_id);
@@ -402,9 +415,9 @@ public:
 
 
   
-    EGLDisplay getEGLDisplay() override;
-    EGLContext getEGLContext() override;
-    EGLSurface getEGLSurface() override;
+    EGLDisplay getEGLDisplay();// override;
+    EGLContext getEGLContext();// override;
+    EGLSurface getEGLSurface();// override;
     bool DestroyWindow();
 	void DestroyContext();
 	void DestroySurface();
