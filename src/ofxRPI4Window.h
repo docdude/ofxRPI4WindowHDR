@@ -21,8 +21,8 @@
 #include <drm_fourcc.h>
 #include <gbm.h>
 
-//#include <GLES2/gl2.h>
-//#include <GLES2/gl2ext.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
@@ -368,7 +368,6 @@ public:
 	static int shader_init;
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
-	void EGL_create_context(EGLConfig config, int major, int minor);
 	
 	/* shaders */
 	static void rgb2ycbcr_shader();
@@ -379,19 +378,11 @@ public:
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);
 	void in_formats_info(int fd, uint32_t blob_id);
-<<<<<<< HEAD
-	bool cta_is_hdr_static_metadata_block(const unsigned char *edid_ext);
-	bool cta_is_dovi_video_block(const unsigned char *edid_ext);
-	/* Parse EDID for HDMI 2.0 support report if display supports */
-	bool supportsHDMI2_0 = false;
-	bool cta_is_hf_vsdb_block(const unsigned char *edid_ext);
-=======
 	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
 	bool cta_is_dovi_video_block(const char *edid_ext);
 	/* Parse EDID for HDMI 2.0 support report if display supports */
 	bool supportsHDMI2_0 = false;
 	bool cta_is_hf_vsdb_block(const char *edid_ext);
->>>>>>> 37b5a47 (Add colorspace socket connection check and check for HF VSDB)
 
 	/* Set DRM Plane swap between HDR and SDR planes */
 	void FlipPage(bool flip, uint32_t fb_id);
@@ -427,9 +418,9 @@ public:
 
 
   
-    EGLDisplay getEGLDisplay();// override;
-    EGLContext getEGLContext();// override;
-    EGLSurface getEGLSurface();// override;
+    EGLDisplay getEGLDisplay() override;
+    EGLContext getEGLContext() override;
+    EGLSurface getEGLSurface() override;
     bool DestroyWindow();
 	void DestroyContext();
 	void DestroySurface();

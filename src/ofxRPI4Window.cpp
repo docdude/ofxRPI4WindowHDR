@@ -998,7 +998,6 @@ ofxRPI4Window::find_device(void)
             continue;
 		::close(fd);
 		fd = open(device->nodes[DRM_NODE_PRIMARY], O_RDWR | O_CLOEXEC);
-	//		fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
 		if (fd < 0)
 			continue;
 		ofLog() << "DRM: opened device: " << device->nodes[DRM_NODE_PRIMARY];	
@@ -1028,7 +1027,7 @@ ofxRPI4Window::find_device(void)
     return 0;
 }
 
-bool ofxRPI4Window::cta_is_hdr_static_metadata_block(const unsigned char *edid_ext)
+bool ofxRPI4Window::cta_is_hdr_static_metadata_block(const char *edid_ext)
 {
 	/*
 	 * Byte 1: 0x07 indicates Extended Tag
@@ -1050,9 +1049,9 @@ bool ofxRPI4Window::cta_is_hdr_static_metadata_block(const unsigned char *edid_e
 	return false;
 }
 
-bool ofxRPI4Window::cta_is_dovi_video_block(const unsigned char *edid_ext)
+bool ofxRPI4Window::cta_is_dovi_video_block(const char *edid_ext)
 {
-	uint32_t oui;
+	unsigned int oui;
 	/*
 	 * Byte 1: 0x03 indicates Extended Tag
 	 * Byte 2: 0x01 indicates HDMI DoVi VSDB
@@ -1067,15 +1066,9 @@ bool ofxRPI4Window::cta_is_dovi_video_block(const unsigned char *edid_ext)
 	return false;
 }
 
-<<<<<<< HEAD
-bool ofxRPI4Window::cta_is_hf_vsdb_block(const unsigned char *edid_ext)
-{
-	uint32_t oui;
-=======
 bool ofxRPI4Window::cta_is_hf_vsdb_block(const char *edid_ext)
 {
 	unsigned int oui;
->>>>>>> 37b5a47 (Add colorspace socket connection check and check for HF VSDB)
 	unsigned rate = edid_ext[5] * 5;
 	/*
 	 * Byte 1: 0x03 indicates Vendor Block
@@ -1101,7 +1094,7 @@ int ofxRPI4Window::is_panel_hdr_dovi(int fd, int connector_id)
 	const struct edid_ext *edid_ext;
 	const struct edid *edid;
 	const struct edid_cea *edid_cea;
-	const unsigned char *cea_data;
+	const char *cea_data;
 	int ret = 0;
 	bool supportsHDR = false;
 	bool supportsDoVi = false;
@@ -1215,7 +1208,7 @@ bool ofxRPI4Window::InitDRM()
     for (int i = 0; i < resources->count_connectors; i++)
     {
         drmModeConnector* modeConnector = drmModeGetConnector(device, resources->connectors[i]);
-        if (modeConnector->connection == DRM_MODE_CONNECTED && modeConnector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
+        if (modeConnector->connection == DRM_MODE_CONNECTED)
         {
             connector = modeConnector;
 			ofLog() << "DRM: Using CONNECTOR_ID: " << connector->connector_id;
@@ -1438,6 +1431,38 @@ void ofxRPI4Window::FindModifiers(uint32_t format, uint32_t plane_id)
 	
 }	
 
+	
+void ofxRPI4Window::EGL_info()
+{
+	#if 1
+            
+            
+            ofLog() << "-----EGL-----";
+           // ofLog() << "EGL_VERSION_MAJOR = " << eglVersionMajor;
+           // ofLog() << "EGL_VERSION_MINOR = " << eglVersionMinor;
+            ofLog() << "EGL_CLIENT_APIS = " << eglQueryString(getEGLDisplay(), EGL_CLIENT_APIS);
+            ofLog() << "EGL_VENDOR = "  << eglQueryString(getEGLDisplay(), EGL_VENDOR);
+            ofLog() << "EGL_VERSION = " << eglQueryString(getEGLDisplay(), EGL_VERSION);
+            ofLog() << "EGL_EXTENSIONS = " << eglQueryString(getEGLDisplay(), EGL_EXTENSIONS);
+            ofLog() << "GL_SHADING_LANGUAGE_VERSION   = " << glGetString(GL_SHADING_LANGUAGE_VERSION);
+            ofLog() << "GL_RENDERER = " << glGetString(GL_RENDERER);
+            ofLog() << "GL_VERSION  = " << glGetString(GL_VERSION);
+            ofLog() << "GL_VENDOR   = " << glGetString(GL_VENDOR);
+            ofLog() << "-------------";
+            
+            auto gl_exts = (char *) glGetString(GL_EXTENSIONS);
+            ofLog(OF_LOG_VERBOSE, "GL INFO");
+            ofLog(OF_LOG_VERBOSE, "  version: \"%s\"", glGetString(GL_VERSION));
+            ofLog(OF_LOG_VERBOSE, "  shading language version: \"%s\"", glGetString(GL_SHADING_LANGUAGE_VERSION));
+            ofLog(OF_LOG_VERBOSE, "  vendor: \"%s\"", glGetString(GL_VENDOR));
+            ofLog(OF_LOG_VERBOSE, "  renderer: \"%s\"", glGetString(GL_RENDERER));
+            ofLog(OF_LOG_VERBOSE, "  extensions: \"%s\"", gl_exts);
+            ofLog(OF_LOG_VERBOSE, "===================================\n");
+            //get_proc_gl(GL_OES_EGL_image, glEGLImageTargetTexture2DOES);
+       
+#endif   
+} 
+
 int ofxRPI4Window::isHDR = 0;
 int ofxRPI4Window::isDoVi = 0;
 int ofxRPI4Window::is_std_DoVi = 0;
@@ -1501,7 +1526,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((bit_depth >=12) && (bit_depth <= 16)  && (avi_info.max_bpc >= 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -1527,7 +1552,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((bit_depth >=12) && (bit_depth <= 16)  && (avi_info.max_bpc >= 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up Low Latency DoVi(12 bit) window/surface"; 
 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
@@ -1545,7 +1570,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 				ofLog() << "DRM: setting up HDR(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((bit_depth >=12) && (bit_depth <= 16)  && (avi_info.max_bpc >= 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: setting up HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -1580,7 +1605,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
 
 	} else {
 		ofLog() << "DRM: panel is not HDR capable";
-		ofLog() << "DRM: setting up SDR window/surface"; 
+		ofLog() << "DRM: setting up SDR window/surface";
 		isHDR = 0;
 		isDoVi = 0;
 		is_std_DoVi = 0;
@@ -1592,103 +1617,6 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
         starting_bpc = avi_info.max_bpc;
 		colorspace_status = colorspace_on;
     
-}
-
-	
-void ofxRPI4Window::EGL_info()
-{       
-            
-    ofLog() << "-----EGL-----";
-    // ofLog() << "EGL_VERSION_MAJOR = " << eglVersionMajor;
-    // ofLog() << "EGL_VERSION_MINOR = " << eglVersionMinor;
-    ofLog() << "EGL_CLIENT_APIS = " << eglQueryString(getEGLDisplay(), EGL_CLIENT_APIS);
-    ofLog() << "EGL_VENDOR = "  << eglQueryString(getEGLDisplay(), EGL_VENDOR);
-    ofLog() << "EGL_VERSION = " << eglQueryString(getEGLDisplay(), EGL_VERSION);
-    ofLog() << "EGL_EXTENSIONS = " << eglQueryString(getEGLDisplay(), EGL_EXTENSIONS);
-    ofLog() << "GL_SHADING_LANGUAGE_VERSION   = " << glGetString(GL_SHADING_LANGUAGE_VERSION);
-    ofLog() << "GL_RENDERER = " << glGetString(GL_RENDERER);
-    ofLog() << "GL_VERSION  = " << glGetString(GL_VERSION);
-    ofLog() << "GL_VENDOR   = " << glGetString(GL_VENDOR);
-    ofLog() << "-------------";
-            
-    auto gl_exts = (char *) glGetString(GL_EXTENSIONS);
-    ofLog(OF_LOG_VERBOSE, "GL INFO");
-    ofLog(OF_LOG_VERBOSE, "  version: \"%s\"", glGetString(GL_VERSION));
-    ofLog(OF_LOG_VERBOSE, "  shading language version: \"%s\"", glGetString(GL_SHADING_LANGUAGE_VERSION));
-    ofLog(OF_LOG_VERBOSE, "  vendor: \"%s\"", glGetString(GL_VENDOR));
-    ofLog(OF_LOG_VERBOSE, "  renderer: \"%s\"", glGetString(GL_RENDERER));
-    ofLog(OF_LOG_VERBOSE, "  extensions: \"%s\"", gl_exts);
-    ofLog(OF_LOG_VERBOSE, "===================================\n");
-    //get_proc_gl(GL_OES_EGL_image, glEGLImageTargetTexture2DOES);
-
-} 
-
-void ofxRPI4Window::EGL_create_context(EGLConfig config, int major, int minor) 
-{
-	
-	struct {
-        EGLenum api;
-        EGLenum render;
-        int major, minor;
-        int glsl_ver;
-        EGLenum profile;
-	} egl_vers[] = {
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     4, 6, 460, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     4, 5, 450, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     4, 4, 440, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     4, 0, 400, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     3, 3, 330, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     3, 2, 150, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     3, 1, 140, EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT, },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     3, 0, 130, EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT, },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     2, 1, 120, EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT, },
-        { EGL_OPENGL_API,       EGL_OPENGL_BIT,     2, 0, 110, EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT, },
-        { EGL_OPENGL_ES_API,    EGL_OPENGL_ES3_BIT, 3, 2, 320, },
-        { EGL_OPENGL_ES_API,    EGL_OPENGL_ES3_BIT, 3, 1, 310, },
-        { EGL_OPENGL_ES_API,    EGL_OPENGL_ES3_BIT, 3, 0, 300, },
-        { EGL_OPENGL_ES_API,    EGL_OPENGL_ES2_BIT, 2, 0, 100, },
-    };
-
-	int egl_ver = major * 10 + minor;
-	/* Check GPU OpenGL, OpenGLES version */
-    for (int i = 0; i < (int)ARRAY_SIZE(egl_vers); i++) {
-
-
-        if (egl_vers[i].api == EGL_OPENGL_ES_API) {
-            // OpenGL ES
-            const EGLint contextAttribs[] = {
-                EGL_CONTEXT_CLIENT_VERSION, egl_vers[i].major,
-                (egl_ver >= 15) ? EGL_CONTEXT_OPENGL_DEBUG : EGL_NONE, EGL_TRUE,
-                EGL_NONE
-            };
-
-            ofLog() << "Attempting creation of OpenGL ES v" << egl_vers[i].major << "." << egl_vers[i].minor << " context";
-			
-            context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-        } else {
-            // Desktop OpenGL
-            const int contextAttribs[] = {
-                EGL_CONTEXT_MAJOR_VERSION, egl_vers[i].major,
-                EGL_CONTEXT_MINOR_VERSION, egl_vers[i].minor,
-                EGL_CONTEXT_OPENGL_PROFILE_MASK, (int)egl_vers[i].profile,
-                (egl_ver >= 15) ? EGL_CONTEXT_OPENGL_DEBUG : EGL_NONE, EGL_TRUE,
-                EGL_NONE
-            };
-
-            ofLog() << "Attempting creation of OpenGL v" << egl_vers[i].major << "." << egl_vers[i].minor << " context";
-                
-            context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-        }
-		
-        if (!context) {
-            auto error = eglGetError();
-            ofLogError() << "context ERROR: " << eglErrorString(error);
-            continue;
-        } else {
-			ofLog() << "Created OpenGL ES v" << egl_vers[i].major << "." << egl_vers[i].minor << " context";
-            break;
-        }
-     }
 }
 
 void ofxRPI4Window::EGL_create_surface(EGLint attribs[], EGLConfig config)
@@ -2198,7 +2126,6 @@ void ofxRPI4Window::dovi_image_shader()
 	
 	shader.setup(settings);	
 }
-
 void ofxRPI4Window::HDRWindowSetup()
 {
 	if (!DestroyWindow()) 
@@ -2232,13 +2159,13 @@ void ofxRPI4Window::HDRWindowSetup()
 #if defined(HAS_GBM_MODIFIERS)
 	if (num_modifiers > 0)
 	{
-		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XRGB2101010, modifiers,
+		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ABGR2101010, modifiers,
                                                 num_modifiers);
 	}
 #endif
 	if (!gbmSurface)
 	{
-		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay,GBM_FORMAT_XRGB2101010,
+		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay,GBM_FORMAT_ABGR2101010,
 									GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 	}
 
@@ -2252,7 +2179,7 @@ void ofxRPI4Window::HDRWindowSetup()
 	}
 	free(modifiers);
 #else
-    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XRGB2101010, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ABGR2101010, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
 	if (!gbmSurface)
 	{
@@ -2298,9 +2225,9 @@ void ofxRPI4Window::HDRWindowSetup()
 		EGL_RED_SIZE,10,
 		EGL_GREEN_SIZE,10,
 		EGL_BLUE_SIZE,10,
-		EGL_ALPHA_SIZE,0,
+		EGL_ALPHA_SIZE,2,
 		EGL_DEPTH_SIZE,24,
-		EGL_BUFFER_SIZE,30,
+		EGL_BUFFER_SIZE,32,
 		EGL_STENCIL_SIZE,8,
 		EGL_SAMPLES,0,
 		EGL_SAMPLE_BUFFERS,0,
@@ -2311,7 +2238,7 @@ void ofxRPI4Window::HDRWindowSetup()
 		EGL_COLOR_COMPONENT_TYPE_EXT, EGL_COLOR_COMPONENT_TYPE_FIXED_EXT, //EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT, 
 		EGL_NONE
 	};
-	EGLint visualId = GBM_FORMAT_XRGB2101010;
+	EGLint visualId = GBM_FORMAT_ABGR2101010;
 
 	if (ofGetLogLevel() == 0) PrintConfigs(display);
 	 
@@ -2339,22 +2266,24 @@ void ofxRPI4Window::HDRWindowSetup()
     }
         
     free(configs);        
-
-  //  const EGLint contextAttribs[] = {
-  //      EGL_CONTEXT_MAJOR_VERSION, major,  //update to version 3.0, previously 2
-//	EGL_CONTEXT_MINOR_VERSION, minor,
-  //      EGL_NONE
-	//};
+        
+ //       const EGLint contextAttribs[] = {
+  //         EGL_CONTEXT_CLIENT_VERSION, 2,
+  //          EGL_NONE};
+    const EGLint contextAttribs[] = {
+        EGL_CONTEXT_MAJOR_VERSION, 3,  //update to version 3.0, previously 2
+		EGL_CONTEXT_MINOR_VERSION, 1,
+        EGL_NONE
+	};
 			
     if(config)
     {
-	   EGL_create_context(config, major, minor);
-     //   context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-     //   if (!context)
-     //   {
-     //       auto error = eglGetError();
-     //       ofLogError() << "context ERROR: " << eglErrorString(error);
-     //   }
+        context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+        if (!context)
+        {
+            auto error = eglGetError();
+            ofLogError() << "context ERROR: " << eglErrorString(error);
+        }
 	    const char *client_extensions = eglQueryString(display, EGL_EXTENSIONS);
 				  
 	    if (strstr(client_extensions, "EGL_EXT_gl_colorspace_bt2020_pq"))
@@ -2373,24 +2302,18 @@ void ofxRPI4Window::HDRWindowSetup()
 		 
 		if (hdr_primaries == 1) {
 			if (static_cast<int>(eotf) == 2) {
-//				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };
-		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_LINEAR_KHR,EGL_NONE };         
-
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };
 				EGL_create_surface(attribs, config);				
 			} else {
-						EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_LINEAR_KHR,EGL_NONE };         
-
-//				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_LINEAR_EXT,EGL_NONE }; 	
+				EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_LINEAR_EXT,EGL_NONE }; 	
 				EGL_create_surface(attribs, config);
 			}
 		}
 
 		if (hdr_primaries == 2 || hdr_primaries == 0) {
-	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT,EGL_NONE };    //linear Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR
+			EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT,EGL_NONE };    //linear Display-P3 color space is assumed, with a corresponding GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING value of GL_LINEAR
 	//		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_DISPLAY_P3_EXT,EGL_NONE };   //non-linear, sRGB encoded Display-P3 color space is assumed, with a corresponding GL_FRAME-BUFFER_ATTACHMENT_COLOR_ENCODING value of GL_SRGB.
-		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_LINEAR_KHR,EGL_NONE };         
-   		
-		EGL_create_surface(attribs, config);
+   			EGL_create_surface(attribs, config);
 		}
 
 #if 1
@@ -2423,7 +2346,7 @@ void ofxRPI4Window::HDRWindowSetup()
          currentRenderer.reset();  
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
-        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(major,minor);
+        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 		if (avi_info.output_format != 0 && shader_init) { 
 
 			rgb2ycbcr_shader();
@@ -2481,13 +2404,13 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 #if defined(HAS_GBM_MODIFIERS)
 	if (num_modifiers > 0)
 	{
-		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XBGR16161616F, modifiers,
+		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ABGR16161616F, modifiers,
                                                 num_modifiers);
 	}
 #endif
 	if (!gbmSurface)
 	{
-		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay,GBM_FORMAT_XBGR16161616F,
+		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay,GBM_FORMAT_ABGR16161616F,
 									GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 	}
 
@@ -2501,7 +2424,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 	}
 	free(modifiers);
 #else
-    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XBGR16161616F, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ABGR16161616F, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
 	if (!gbmSurface)
 	{
@@ -2547,9 +2470,9 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 		EGL_RED_SIZE,16,
 		EGL_GREEN_SIZE,16,
 		EGL_BLUE_SIZE,16,
-		EGL_ALPHA_SIZE,0,//16
+		EGL_ALPHA_SIZE,16,
 		EGL_DEPTH_SIZE,24,
-		EGL_BUFFER_SIZE,48,//64,
+		EGL_BUFFER_SIZE,64,
 		EGL_STENCIL_SIZE,8,
 		EGL_SAMPLES,0,
 		EGL_SAMPLE_BUFFERS,0,
@@ -2560,8 +2483,8 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 		EGL_COLOR_COMPONENT_TYPE_EXT, EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT, //EGL_COLOR_COMPONENT_TYPE_FIXED_EXT, //EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT, 
 		EGL_NONE
 	};
-
-	EGLint visualId = GBM_FORMAT_XBGR16161616F;
+		//EGLint visualId = GBM_FORMAT_RGBX1010102; //??HDR  
+	EGLint visualId = GBM_FORMAT_ABGR16161616F;
 
 
   //  eglGetConfigs(display, configs, count, &count);
@@ -2595,24 +2518,25 @@ void ofxRPI4Window::Bit10_16WindowSetup()
         config = configs[config_index];
     }
     free(configs);         
-
-
-
- //   const EGLint contextAttribs[] = {
- //       EGL_CONTEXT_MAJOR_VERSION, major,  //update to version 3.0, previously 2
-//		EGL_CONTEXT_MINOR_VERSION, minor,
-   //     EGL_NONE
-//	};
+        
+        
+ //       const EGLint contextAttribs[] = {
+  //         EGL_CONTEXT_CLIENT_VERSION, 2,
+  //          EGL_NONE};
+    const EGLint contextAttribs[] = {
+        EGL_CONTEXT_MAJOR_VERSION, 3,  //update to version 3.0, previously 2
+		EGL_CONTEXT_MINOR_VERSION, 1,
+        EGL_NONE
+	};
 		 	
     if(config)
     {
-	   EGL_create_context(config, major, minor);
-       // context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-    //    if (!context)
-    //    {
-     //       auto error = eglGetError();
-    //        ofLogError() << "context ERROR: " << eglErrorString(error);
-     //   }
+        context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+        if (!context)
+        {
+            auto error = eglGetError();
+            ofLogError() << "context ERROR: " << eglErrorString(error);
+        }
 	    const char *client_extensions = eglQueryString(display, EGL_EXTENSIONS);
 				  
 	    if (strstr(client_extensions, "EGL_EXT_gl_colorspace_bt2020_pq"))
@@ -2627,7 +2551,7 @@ void ofxRPI4Window::Bit10_16WindowSetup()
 		} else {
 			ofLogError() << "EGL_GL_COLORSPACE_KHR not available\n";
 		}
-		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_LINEAR_KHR,EGL_NONE };         
+		EGLint attribs[] = {EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_BT2020_PQ_EXT,EGL_NONE };         
 		EGL_create_surface(attribs, config);
 #if 0
 		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC createPlatformWindowSurfaceEXT = nullptr;
@@ -2722,7 +2646,7 @@ PFNEGLQUERYDMABUFFORMATSEXTPROC eglQueryDmaBufFormatsEXT =
 #endif           
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
-        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(major,minor);
+        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 
 
 
@@ -2764,13 +2688,13 @@ int ret;
 #if defined(HAS_GBM_MODIFIERS)
 	if (num_modifiers > 0)
 	{
-		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XRGB8888, modifiers,
+		gbmSurface = gbm_surface_create_with_modifiers(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ARGB8888, modifiers,
                                                 num_modifiers);
 	}
 #endif
 	if (!gbmSurface)
 	{
-		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XRGB8888,
+		gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ARGB8888,
 									GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 	}
 
@@ -2784,7 +2708,7 @@ int ret;
 	}
 	free(modifiers);
 #else
-    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_XRGB8888 , GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+    gbmSurface = gbm_surface_create(gbmDevice, (uint32_t)mode.hdisplay, (uint32_t)mode.vdisplay, GBM_FORMAT_ARGB8888 , GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
 	if (!gbmSurface)
 	{
@@ -2826,12 +2750,12 @@ int ret;
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
-        EGL_DEPTH_SIZE, 24,
-		EGL_ALPHA_SIZE, 0,
+        EGL_DEPTH_SIZE, 16,
+		EGL_ALPHA_SIZE, 8,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
         EGL_NONE
 	};
-	EGLint visualId = GBM_FORMAT_XRGB8888;
+	EGLint visualId = GBM_FORMAT_ARGB8888;
 
       
 
@@ -2862,22 +2786,24 @@ int ret;
     }
         
     free(configs);    
-
-//    const EGLint contextAttribs[] = {
-	//	EGL_CONTEXT_MAJOR_VERSION, major,  //update to version 3.0, previously 2
-//		EGL_CONTEXT_MINOR_VERSION, minor,
-//		EGL_NONE
-//	};
+        
+ //       const EGLint contextAttribs[] = {
+  //         EGL_CONTEXT_CLIENT_VERSION, 2,
+  //          EGL_NONE};
+    const EGLint contextAttribs[] = {
+		EGL_CONTEXT_MAJOR_VERSION, 3,  //update to version 3.0, previously 2
+		EGL_CONTEXT_MINOR_VERSION, 1,
+		EGL_NONE
+	};
 			 
     if(config)
     {
-		EGL_create_context(config, major, minor);
-  //      context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-  //      if (!context)
-  //      {
-  //          auto error = eglGetError();
-   //         ofLogError() << "context ERROR: " << eglErrorString(error);
-   //     }
+        context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+        if (!context)
+        {
+            auto error = eglGetError();
+            ofLogError() << "context ERROR: " << eglErrorString(error);
+        }
 #if 1
 		const char *client_extensions = eglQueryString(display, EGL_EXTENSIONS);
 				  
@@ -2969,7 +2895,7 @@ int ret;
 
         currentRenderer = make_shared<ofGLProgrammableRenderer>(this);
         makeCurrent();
-        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(major,minor);
+        static_cast<ofGLProgrammableRenderer*>(currentRenderer.get())->setup(3,1);
 		if (avi_info.output_format != 0 && shader_init) { 
 
 			rgb2ycbcr_shader();
@@ -2990,8 +2916,13 @@ int ret;
         {
             ofLogError() << "RIP";
         }
-
+        
+     
+    
 }
+
+
+
 
 void ofxRPI4Window::makeCurrent()
 {
@@ -3050,7 +2981,7 @@ void ofxRPI4Window::update()
 				if (!ofxRPI4Window::shader_init && ofxRPI4Window::avi_info.output_format != 0)
 					shader_init = 1;
 				HDRWindowSetup();
-			} else if ((bit_depth >=12) && (bit_depth <= 16)  && (avi_info.max_bpc >= 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating HDR(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -3069,7 +3000,7 @@ void ofxRPI4Window::update()
 				ofLog() << "DRM: updating Low Latency DoVi(10 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR2101010, HDRplaneId);
 				HDRWindowSetup();
-			} else if ((bit_depth >=12) && (bit_depth <= 16)  && (avi_info.max_bpc >= 12)) {
+			} else if ((bit_depth >=8) && (bit_depth <= 12)  && (avi_info.max_bpc == 12)) {
 				ofLog() << "DRM: updating Low Latency DoVi(12 bit) window/surface"; 
 				FindModifiers(DRM_FORMAT_ABGR16161616F, HDRplaneId);
 				Bit10_16WindowSetup();
@@ -3221,7 +3152,7 @@ drm_fb * ofxRPI4Window::drm_fb_get_from_bo(struct gbm_bo *bo)
 	  if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
   {
     flags |= DRM_MODE_FB_MODIFIERS;
-   printf("%s - using modifier: {:%lx}\n", __func__, modifier[0]);
+   printf("%s - using modifier: {:%llx}\n", __func__, modifier[0]);
   }
 	
  int ret = drmModeAddFB2WithModifiers(drm_fd,
@@ -3570,7 +3501,7 @@ void ofxRPI4Window::DisablePlane(uint32_t plane_id, const char* plane)
 		ofLogError() << "DRM: Unable to find FB_ID";
 	
 	last_req = 1; //final atomic request, set to commit all prior requests
-	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id , 0, prop, DRM_MODE_ATOMIC_ALLOW_MODESET); 
+	drm_mode_atomic_set_property(device, req, "FB_ID", plane_id, prop_id , 0, prop, 0); 
 	
 }
 
@@ -3871,32 +3802,10 @@ void ofxRPI4Window::updateDoVi_Infoframe(int enable, int dv_interface)
 void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe avi_infoframe)
 {
 	bool ok;
-	ofLog() << "DRM: Setting plane properties";
 	
-	first_req = 1; // allocate for atomic requests
-		
-    /* set COLOR_ENCODING plane property, for multi-plane formats, does nothing for single plane formats*/
-	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", &prop_id, &c_enc, &prop);
-
-	if (!ok || !(c_enc >= 0)) {
-		ofLogError() << "DRM: Unable find COLOR_ENCODING";
-	} else {
-		c_enc = avi_infoframe.c_enc; //set to ITU-R BT.601 YCbCr or ITU-R BT.709 YCbCr or ITU-R BT.2020 YCbCr
-		drm_mode_atomic_set_property(device, req, "COLOR_ENCODING", plane_id, prop_id, c_enc, prop, 0);
-	}
-
-	/* set COLOR_RANGE plane property */
-	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_RANGE", &prop_id, &c_range, &prop);
-
-	if (!ok || !(c_range >= 0)) {
-		ofLogError() << "DRM: Unable find COLOR_RANGE";
-	} else {
-		c_range = avi_infoframe.c_range; //set to YCbCr full range	
-		drm_mode_atomic_set_property(device, req, "COLOR_RANGE", plane_id, prop_id, c_range, prop, 0);
-	}	
 	ofLog() << "DRM: Setting connector properties";
 	
-
+	first_req = 1; // allocate for atomic requests
 	
 	/* set colorimtery */	
 	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Colorspace", &prop_id, &colorimetry, &prop);
@@ -3927,19 +3836,40 @@ void ofxRPI4Window::updateAVI_Infoframe(uint32_t plane_id, struct avi_infoframe 
 		max_bpc = avi_infoframe.max_bpc;
 		drm_mode_atomic_set_property(device, req, "max bpc" , connectorId,	prop_id, max_bpc, prop, 0); 
 	}
-
-	last_req = 1; // commit previous atomic requests	
+	
 	/* set rgb quant range */
 	ok = drm_mode_get_property(device, connectorId,	DRM_MODE_OBJECT_CONNECTOR, "Broadcast RGB", &prop_id, &rgb_quant_range, &prop);
 
 	if (!ok || !(rgb_quant_range >=0)) { 
-		ofLogError() << "DRM: Unable to find Broadcast RGB";
+		ofLogError() << "DRM: Unable to find RGB Quant Range";
 	} else {	
 		rgb_quant_range = avi_infoframe.rgb_quant_range;
-		drm_mode_atomic_set_property(device, req, "Broadcast RGB", connectorId, prop_id, rgb_quant_range, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
+		drm_mode_atomic_set_property(device, req, "Broadcast RGB", connectorId, prop_id, rgb_quant_range, prop, 0);
 	}	
 
+	ofLog() << "DRM: Setting plane properties";
+	
+    /* set COLOR_ENCODING plane property, for multi-plane formats, does nothing for single plane formats*/
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", &prop_id, &c_enc, &prop);
 
+	if (!ok || !(c_enc >= 0)) {
+		ofLogError() << "DRM: Unable find COLOR_ENCODING";
+	} else {
+		c_enc = avi_infoframe.c_enc; //set to ITU-R BT.601 YCbCr or ITU-R BT.709 YCbCr or ITU-R BT.2020 YCbCr
+		drm_mode_atomic_set_property(device, req, "COLOR_ENCODING", plane_id, prop_id, c_enc, prop, 0);
+	}
+
+	last_req = 1; // commit previous atomic requests	
+	
+	/* set COLOR_RANGE plane property */
+	ok = drm_mode_get_property(device, plane_id, DRM_MODE_OBJECT_PLANE, "COLOR_RANGE", &prop_id, &c_range, &prop);
+
+	if (!ok || !(c_range >= 0)) {
+		ofLogError() << "DRM: Unable find COLOR_RANGE";
+	} else {
+		c_range = avi_infoframe.c_range; //set to YCbCr full range	
+		drm_mode_atomic_set_property(device, req, "COLOR_RANGE", plane_id, prop_id, c_range, prop, DRM_MODE_ATOMIC_ALLOW_MODESET);
+	}
 
 }
 
