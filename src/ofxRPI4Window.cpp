@@ -1067,9 +1067,15 @@ bool ofxRPI4Window::cta_is_dovi_video_block(const unsigned char *edid_ext)
 	return false;
 }
 
+<<<<<<< HEAD
 bool ofxRPI4Window::cta_is_hf_vsdb_block(const unsigned char *edid_ext)
 {
 	uint32_t oui;
+=======
+bool ofxRPI4Window::cta_is_hf_vsdb_block(const char *edid_ext)
+{
+	unsigned int oui;
+>>>>>>> 37b5a47 (Add colorspace socket connection check and check for HF VSDB)
 	unsigned rate = edid_ext[5] * 5;
 	/*
 	 * Byte 1: 0x03 indicates Vendor Block
@@ -1458,6 +1464,7 @@ void ofxRPI4Window::setup(const ofGLESWindowSettings & settings)
     check_extensions();
     bEnableSetupScreen = true;
 //	colorspace_on = true;
+ int cs_connected = cs_socket_check();
     windowMode = OF_WINDOW;
     glesVersion = settings.glesVersion;
     InitDRM(); 
@@ -4132,6 +4139,51 @@ void ofxRPI4Window::gbmClean()
   }
 }
 
+int ofxRPI4Window::cs_socket_check()
+{
+    int portno = 20002;
+    const char *hostname = "127.0.0.1";
+
+    int sockfd;
+	int ret;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        ofLogError() << "ERROR opening socket";
+		ret = -1;
+    }
+
+    server = gethostbyname(hostname);
+
+    if (server == NULL) {
+        ofLogError() << "ERROR, no such host";
+        exit(0);
+		ret = -1;
+    }
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+
+    serv_addr.sin_port = htons(portno);
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+        ofLog() << "CS Port is closed";
+		ret = 0;
+    } else {
+        ofLog() << "CS Port is active";
+		ret = 1;
+    }
+int error_code;
+socklen_t error_code_size = sizeof(error_code);
+getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error_code, &error_code_size);
+ofLog() << "CS Port status " << "error num " << errno << " " << strerror(errno); 
+    ::close(sockfd);
+    return ret;
+}
 
 ofxRPI4Window::~ofxRPI4Window()
 {

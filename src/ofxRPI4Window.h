@@ -11,7 +11,11 @@
 #include <unistd.h> // read close
 #include <string.h> // strlen
 #include <sys/time.h>
-
+/* connection verify */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h> 
+/* drm functions */
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <drm_fourcc.h>
@@ -307,7 +311,7 @@ public:
     static void loop(){};
     static bool needsPolling(){ return true; }
     static void pollEvents();
-    
+	static int cs_socket_check();    
 
     ofxRPI4Window();
     ofxRPI4Window(const ofGLESWindowSettings & settings);
@@ -375,11 +379,19 @@ public:
 	/* Parse EDID for HDR and DoVi support report if display supports */
 	int is_panel_hdr_dovi(int fd, int connector_id);
 	void in_formats_info(int fd, uint32_t blob_id);
+<<<<<<< HEAD
 	bool cta_is_hdr_static_metadata_block(const unsigned char *edid_ext);
 	bool cta_is_dovi_video_block(const unsigned char *edid_ext);
 	/* Parse EDID for HDMI 2.0 support report if display supports */
 	bool supportsHDMI2_0 = false;
 	bool cta_is_hf_vsdb_block(const unsigned char *edid_ext);
+=======
+	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
+	bool cta_is_dovi_video_block(const char *edid_ext);
+	/* Parse EDID for HDMI 2.0 support report if display supports */
+	bool supportsHDMI2_0 = false;
+	bool cta_is_hf_vsdb_block(const char *edid_ext);
+>>>>>>> 37b5a47 (Add colorspace socket connection check and check for HF VSDB)
 
 	/* Set DRM Plane swap between HDR and SDR planes */
 	void FlipPage(bool flip, uint32_t fb_id);
