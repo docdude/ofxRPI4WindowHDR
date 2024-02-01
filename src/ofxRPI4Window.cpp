@@ -3785,7 +3785,8 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 		ResetConnectorProperties();
 		if (isHDR && !isDoVi && !is_std_DoVi)
 		{  
-
+                        dv_status = 0;
+                        dv_interface = 0;
 			updateDoVi_Infoframe(dv_status, dv_interface); // Disable DOVI infoframe
  
 			updateHDR_Infoframe(ofxRPI4Window::eotf, hdr_primaries);// Display Gamut P3D65
@@ -3826,7 +3827,8 @@ void ofxRPI4Window::FlipPage(bool flip, uint32_t fb_id)
 			updateAVI_Infoframe(HDRplaneId, avi_infoframe);	
 
 		} else {
-
+                        dv_status = 0;
+                        dv_interface = 0;
 			updateDoVi_Infoframe(dv_status, dv_interface); // Disable DOVI infoframe if on, for some reason destroying blob doesn't clear the infoframe
 //			updateHDR_Infoframe(ofxRPI4Window::eotf, 0); // Display Gamut Rec709
 			struct avi_infoframe avi_infoframe;
@@ -3981,7 +3983,7 @@ void ofxRPI4Window::updateHDR_Infoframe(hdmi_eotf eotf, int idx)
 			meta.hdmi_metadata_type1.max_display_mastering_luminance = 0;
 			meta.hdmi_metadata_type1.min_display_mastering_luminance = 0;
 		
-			meta.hdmi_metadata_type1.max_fall = 0;  
+			meta.hdmi_metadata_type1.max_fall = 0; 
 			meta.hdmi_metadata_type1.max_cll = 0;
 		} else {
 			meta.metadata_type = HDMI_STATIC_METADATA_TYPE1;
