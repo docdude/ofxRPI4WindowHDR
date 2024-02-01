@@ -21,8 +21,8 @@
 #include <drm_fourcc.h>
 #include <gbm.h>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+//#include <GLES2/gl2.h>
+//#include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
@@ -368,6 +368,7 @@ public:
 	static int shader_init;
 
 	void EGL_create_surface(EGLint attribs[], EGLConfig config);
+	void EGL_create_context(EGLConfig config, int &major, int &minor);
 	
 	/* shaders */
 	static void rgb2ycbcr_shader();
@@ -380,9 +381,20 @@ public:
 	void in_formats_info(int fd, uint32_t blob_id);
 	bool cta_is_hdr_static_metadata_block(const char *edid_ext);
 	bool cta_is_dovi_video_block(const char *edid_ext);
+	/* Parse EDID for display support capabilities */
+	void check_panel_hdmi_capabilities(int fd, int connector_id);
 	/* Parse EDID for HDMI 2.0 support report if display supports */
-	bool supportsHDMI2_0 = false;
 	bool cta_is_hf_vsdb_block(const char *edid_ext);
+	bool supportsHDMI2_0 = false;
+	/* Parse EDID for Deep Color Support support report if display supports */
+    void supports_deep_color(const char *edid_ext);
+	bool DC_48bit = false;
+	bool DC_36bit = false;
+	bool DC_30bit = false;
+	bool DC_Y444 = false;
+
+
+
 
 	/* Set DRM Plane swap between HDR and SDR planes */
 	void FlipPage(bool flip, uint32_t fb_id);
@@ -418,9 +430,9 @@ public:
 
 
   
-    EGLDisplay getEGLDisplay() override;
-    EGLContext getEGLContext() override;
-    EGLSurface getEGLSurface() override;
+    EGLDisplay getEGLDisplay();// override;
+    EGLContext getEGLContext();// override;
+    EGLSurface getEGLSurface();// override;
     bool DestroyWindow();
 	void DestroyContext();
 	void DestroySurface();
